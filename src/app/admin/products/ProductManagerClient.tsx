@@ -484,35 +484,37 @@ export function ProductManagerClient({
                   ⚙️ กำหนดอัตราส่วนบรรจุภัณฑ์ (Packaging Ratios) & สต็อกเริ่มต้น
                 </label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                  <div>
-                    <label className="text-[11px] text-slate-400 block mb-1">
-                      X: ซองต่อกล่อง (Packs/Box)
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      value={packsPerBox}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 1;
-                        setPacksPerBox(val);
-                        // Auto update multiplier for box/carton
-                        setVariants((prev) =>
-                          prev.map((v) => {
-                            if (v.type === VariantType.BOOSTER_BOX) return { ...v, multiplier: val };
-                            if (v.type === VariantType.CARTON_CASE) return { ...v, multiplier: val * boxesPerCarton };
-                            return v;
-                          })
-                        );
-                      }}
-                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
+                <div className={`grid grid-cols-1 ${allowSinglePack ? "sm:grid-cols-4" : "sm:grid-cols-3"} gap-3`}>
+                  {allowSinglePack && (
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">
+                        X: ซองต่อกล่อง (Packs/Box)
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        value={packsPerBox}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 1;
+                          setPacksPerBox(val);
+                          // Auto update multiplier for box/carton
+                          setVariants((prev) =>
+                            prev.map((v) => {
+                              if (v.type === VariantType.BOOSTER_BOX) return { ...v, multiplier: val };
+                              if (v.type === VariantType.CARTON_CASE) return { ...v, multiplier: val * boxesPerCarton };
+                              return v;
+                            })
+                          );
+                        }}
+                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 font-mono"
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="text-[11px] text-slate-400 block mb-1">
-                      Y: กล่องต่อลัง (Boxes/Carton)
+                      {allowSinglePack ? "Y: กล่องต่อลัง (Boxes/Carton)" : "กล่องต่อลัง (Boxes/Carton)"}
                     </label>
                     <input
                       type="number"
@@ -525,7 +527,8 @@ export function ProductManagerClient({
                         // Auto update multiplier for carton
                         setVariants((prev) =>
                           prev.map((v) => {
-                            if (v.type === VariantType.CARTON_CASE) return { ...v, multiplier: packsPerBox * val };
+                            if (v.type === VariantType.CARTON_CASE)
+                              return { ...v, multiplier: (allowSinglePack ? packsPerBox : 1) * val };
                             return v;
                           })
                         );
@@ -542,7 +545,7 @@ export function ProductManagerClient({
                       type="text"
                       value={baseUnitName}
                       onChange={(e) => setBaseUnitName(e.target.value)}
-                      placeholder="ซอง"
+                      placeholder={allowSinglePack ? "ซอง" : "กล่อง"}
                       className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100"
                     />
                   </div>
@@ -651,7 +654,32 @@ export function ProductManagerClient({
                     <input
                       type="checkbox"
                       checked={allowSinglePack}
-                      onChange={(e) => setAllowSinglePack(e.target.checked)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setAllowSinglePack(checked);
+                        if (!checked) {
+                          if (baseUnitName === "ซอง") setBaseUnitName("กล่อง");
+                          setPacksPerBox(1);
+                          setVariants((prev) =>
+                            prev.map((v) => {
+                              if (v.type === VariantType.BOOSTER_BOX) return { ...v, multiplier: 1 };
+                              if (v.type === VariantType.CARTON_CASE) return { ...v, multiplier: boxesPerCarton };
+                              return v;
+                            })
+                          );
+                        } else {
+                          if (baseUnitName === "กล่อง") setBaseUnitName("ซอง");
+                          setPacksPerBox(16);
+                          setVariants((prev) =>
+                            prev.map((v) => {
+                              if (v.type === VariantType.SINGLE_PACK) return { ...v, multiplier: 1 };
+                              if (v.type === VariantType.BOOSTER_BOX) return { ...v, multiplier: 16 };
+                              if (v.type === VariantType.CARTON_CASE) return { ...v, multiplier: 16 * boxesPerCarton };
+                              return v;
+                            })
+                          );
+                        }
+                      }}
                       className="rounded border-slate-700 text-gold-500 w-4 h-4 focus:ring-0 focus:ring-offset-0"
                     />
                     <span className="text-xs font-semibold text-slate-200">
