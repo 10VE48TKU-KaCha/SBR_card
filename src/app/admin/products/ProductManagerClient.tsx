@@ -69,6 +69,7 @@ export function ProductManagerClient({
   const [images, setImages] = useState<string[]>([]);
   const [isPreOrder, setIsPreOrder] = useState(false);
   const [releaseDate, setReleaseDate] = useState("");
+  const [allowSinglePack, setAllowSinglePack] = useState(true);
   const [baseUnitName, setBaseUnitName] = useState("ซอง");
   const [packsPerBox, setPacksPerBox] = useState<number>(16);
   const [boxesPerCarton, setBoxesPerCarton] = useState<number>(16);
@@ -112,6 +113,7 @@ export function ProductManagerClient({
     setImages([]);
     setIsPreOrder(false);
     setReleaseDate("");
+    setAllowSinglePack(true);
     setBaseUnitName("ซอง");
     setPacksPerBox(16);
     setBoxesPerCarton(16);
@@ -152,11 +154,30 @@ export function ProductManagerClient({
     setImages(product.images || []);
     setIsPreOrder(product.isPreOrder);
     setReleaseDate(product.releaseDate ? product.releaseDate.split("T")[0] : "");
+    const hasSinglePack = (product.variants || []).some(
+      (v) => v.type === VariantType.SINGLE_PACK
+    );
+    setAllowSinglePack(hasSinglePack);
     setBaseUnitName(product.baseUnitName || "ซอง");
     setPacksPerBox(product.packsPerBox);
     setBoxesPerCarton(product.boxesPerCarton);
     setBaseStock(product.baseStock);
-    setVariants(product.variants || []);
+    
+    // Ensure default single pack variant exists in form state even if currently omitted
+    let formVariants = product.variants || [];
+    if (!hasSinglePack) {
+      formVariants = [
+        {
+          type: VariantType.SINGLE_PACK,
+          name: "แบบซอง (Single Pack)",
+          sku: "",
+          price: 70,
+          multiplier: 1,
+        },
+        ...formVariants,
+      ];
+    }
+    setVariants(formVariants);
     setError(null);
     setIsModalOpen(true);
   };
@@ -203,11 +224,13 @@ export function ProductManagerClient({
     setError(null);
 
     try {
-      // Auto-assign SKUs if blank
-      const processedVariants = variants.map((v, i) => ({
-        ...v,
-        sku: v.sku.trim() || `${code.trim().toUpperCase()}-V${i + 1}`,
-      }));
+      // Auto-assign SKUs if blank and filter variants by allowSinglePack
+      const processedVariants = variants
+        .filter((v) => allowSinglePack || v.type !== VariantType.SINGLE_PACK)
+        .map((v, i) => ({
+          ...v,
+          sku: v.sku.trim() || `${code.trim().toUpperCase()}-V${i + 1}`,
+        }));
 
       const res = await saveProductAction({
         id: editingProduct?.id,
@@ -306,11 +329,18 @@ export function ProductManagerClient({
 
                     <td className="py-3.5 max-w-xs">
                       <div className="font-semibold text-slate-100 line-clamp-1">{p.name}</div>
-                      {p.isPreOrder && (
-                        <span className="text-[10px] text-rose-400 font-bold">
-                          [Pre-Order {p.releaseDate ? formatDateShort(p.releaseDate) : ""}]
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        {p.isPreOrder && (
+                          <span className="text-[10px] text-rose-400 font-bold">
+                            [Pre-Order {p.releaseDate ? formatDateShort(p.releaseDate) : ""}]
+                          </span>
+                        )}
+                        {!p.variants.some((v) => v.type === VariantType.SINGLE_PACK) && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 font-medium">
+                            🚫 ปิดขายแบบซอง
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     <td className="py-3.5">
@@ -612,12 +642,28 @@ export function ProductManagerClient({
 
               {/* Variants Configuration */}
               <div className="p-4 rounded-2xl bg-[#131b2e] border border-slate-800 space-y-3">
-                <label className="text-xs font-bold text-gold-300 uppercase tracking-wider block">
-                  กำหนดราคาของแต่ละขนาด (Variants)
-                </label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                  <label className="text-xs font-bold text-gold-300 uppercase tracking-wider block">
+                    กำหนดราคาของแต่ละขนาด (Variants)
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer bg-[#0b0f19] px-3 py-1.5 rounded-xl border border-slate-800 hover:border-gold-500/40 transition-colors self-start sm:self-auto">
+                    <input
+                      type="checkbox"
+                      checked={allowSinglePack}
+                      onChange={(e) => setAllowSinglePack(e.target.checked)}
+                      className="rounded border-slate-700 text-gold-500 w-4 h-4 focus:ring-0 focus:ring-offset-0"
+                    />
+                    <span className="text-xs font-semibold text-slate-200">
+                      📦 เปิดขายแบบซอง (Single Pack)
+                    </span>
+                  </label>
+                </div>
 
                 <div className="space-y-2">
-                  {variants.map((v, idx) => (
+                  {variants
+                    .filter((v) => allowSinglePack || v.type !== VariantType.SINGLE_PACK)
+                    .map((v, idx) => (
                     <div
                       key={idx}
                       className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center p-2 rounded-xl bg-[#0b0f19] border border-slate-800 text-xs"
