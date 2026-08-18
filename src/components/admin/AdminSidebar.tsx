@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -15,10 +15,12 @@ import {
   ExternalLink,
   ChevronRight,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import { logoutAdminAction } from "@/lib/actions";
 
-export function AdminSidebar() {
+export function AdminSidebarContent({ onItemClick }: { onItemClick?: () => void }) {
   const pathname = usePathname();
 
   const links = [
@@ -55,7 +57,7 @@ export function AdminSidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-[#0a0f1d] border-r border-slate-800/80 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen">
+    <div className="flex flex-col justify-between h-full p-4">
       <div className="space-y-6">
         {/* Brand Header */}
         <div className="flex items-center gap-3 px-2 py-3 border-b border-slate-800">
@@ -75,6 +77,7 @@ export function AdminSidebar() {
         <Link
           href="/"
           target="_blank"
+          onClick={onItemClick}
           className="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-gold-500/20 via-amber-500/10 to-transparent border border-gold-500/40 text-gold-300 hover:text-gold-200 hover:border-gold-400 transition-all group shadow-sm"
         >
           <div className="flex items-center gap-2.5">
@@ -100,6 +103,7 @@ export function AdminSidebar() {
               <Link
                 key={link.href}
                 href={link.href}
+                onClick={onItemClick}
                 className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition-all ${
                   isActive
                     ? "bg-gold-500 text-slate-950 font-bold shadow-gold-glow"
@@ -125,7 +129,7 @@ export function AdminSidebar() {
       </div>
 
       {/* Admin Profile Footer & Logout Button */}
-      <div className="space-y-2">
+      <div className="space-y-2 pt-4">
         <div className="p-3.5 rounded-2xl bg-[#0e1628] border border-slate-800 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-gold-500/20 text-gold-400 flex items-center justify-center font-bold">
@@ -146,27 +150,71 @@ export function AdminSidebar() {
           <span>ออกจากระบบ (Logout)</span>
         </button>
       </div>
+    </div>
+  );
+}
+
+export function AdminSidebar() {
+  return (
+    <aside className="hidden md:block w-64 bg-[#0a0f1d] border-r border-slate-800/80 flex-shrink-0 min-h-screen">
+      <AdminSidebarContent />
     </aside>
   );
 }
 
 export function AdminNavbar() {
-  return (
-    <header className="h-16 border-b border-slate-800/80 bg-[#090d18] px-6 flex items-center justify-between sticky top-0 z-30">
-      <div className="flex items-center gap-3">
-        <span className="text-xs font-mono text-slate-400">SUPAPBURUT CONTROL CENTER</span>
-      </div>
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
-      <div className="flex items-center gap-4">
-        <Link
-          href="/"
-          target="_blank"
-          className="px-3.5 py-1.5 rounded-xl bg-gold-500/10 hover:bg-gold-500/20 text-gold-300 border border-gold-500/40 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
-        >
-          <Globe className="w-3.5 h-3.5" />
-          <span>🌐 ดูหน้าร้าน (View Store)</span>
-        </Link>
-      </div>
-    </header>
+  return (
+    <>
+      <header className="h-16 border-b border-slate-800/80 bg-[#090d18] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsMobileDrawerOpen(true)}
+            className="md:hidden p-2 rounded-xl bg-[#131b2e] border border-slate-700 text-slate-200 hover:text-white"
+            aria-label="เปิดเมนูการจัดการ"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="text-xs font-mono text-slate-400">SUPAPBURUT CONTROL CENTER</span>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <Link
+            href="/"
+            target="_blank"
+            className="px-3.5 py-1.5 rounded-xl bg-gold-500/10 hover:bg-gold-500/20 text-gold-300 border border-gold-500/40 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">🌐 ดูหน้าร้าน (View Store)</span>
+            <span className="sm:hidden">หน้าร้าน</span>
+          </Link>
+        </div>
+      </header>
+
+      {/* Mobile Drawer Overlay */}
+      {isMobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setIsMobileDrawerOpen(false)}
+          />
+          <div className="relative w-72 bg-[#0a0f1d] h-full shadow-2xl flex flex-col z-10 border-r border-slate-800">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800">
+              <span className="font-bold text-xs text-gold-300">ADMIN MENU</span>
+              <button
+                onClick={() => setIsMobileDrawerOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <AdminSidebarContent onItemClick={() => setIsMobileDrawerOpen(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

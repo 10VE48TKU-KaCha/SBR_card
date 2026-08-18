@@ -181,20 +181,13 @@ export function Navbar() {
             ))}
           </div>
 
-          <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-xs">
+          <div className="pt-2 border-t border-slate-800 flex justify-center items-center text-xs">
             <NextLink
               href="/track"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="text-slate-400 hover:text-gold-300"
+              className="text-slate-400 hover:text-gold-300 font-medium"
             >
               🔍 ตรวจสอบสถานะคำสั่งซื้อ
-            </NextLink>
-            <NextLink
-              href="/admin/dashboard"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="text-gold-400 font-semibold"
-            >
-              👑 เข้าระบบจัดการหลังร้าน
             </NextLink>
           </div>
         </div>

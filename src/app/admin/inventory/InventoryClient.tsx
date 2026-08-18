@@ -118,6 +118,7 @@ export function InventoryClient({
                             src={p.images[0] || "/logos/sp-logo.png"}
                             alt=""
                             fill
+                            unoptimized
                             className="object-cover"
                           />
                         </div>

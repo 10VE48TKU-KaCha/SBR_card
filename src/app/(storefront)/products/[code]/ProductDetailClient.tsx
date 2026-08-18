@@ -385,7 +385,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 <Info className="w-3.5 h-3.5" />
                 <span>อัตราส่วนการบรรจุ & สต็อกรวมของรุ่นนี้:</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-400 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-400 pt-1">
                 <div>
                   • 1 กล่อง = <strong>{product.packsPerBox} ซอง</strong>
                 </div>

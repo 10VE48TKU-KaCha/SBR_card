@@ -123,6 +123,7 @@ export function SlipViewerModal({ order, isOpen, onClose, onSuccess }: SlipViewe
                   src={order.paymentSlipUrl}
                   alt="Payment Slip"
                   fill
+                  unoptimized
                   className="object-contain"
                 />
               ) : (
