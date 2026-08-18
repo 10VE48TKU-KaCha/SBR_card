@@ -420,6 +420,15 @@ export async function saveProductAction(productData: {
           },
         });
 
+        // Delete variants that are no longer in productData.variants (e.g. SINGLE_PACK disabled)
+        const activeTypes = productData.variants.map((v) => v.type);
+        await tx.productVariant.deleteMany({
+          where: {
+            productId: productData.id,
+            type: { notIn: activeTypes },
+          },
+        });
+
         // Upsert variants
         for (const v of productData.variants) {
           if (v.id) {
