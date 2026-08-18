@@ -1,0 +1,140 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  STAFF
+}
+
+enum GameFranchise {
+  VANGUARD
+  BUDDYFIGHT
+  YUGIOH
+  BATTLE_SPIRITS
+  OTHER
+}
+
+enum VariantType {
+  SINGLE_PACK
+  BOOSTER_BOX
+  CARTON_CASE
+  STARTER_DECK
+  SPECIAL_SET
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PENDING_VERIFICATION
+  PAID
+  PREPARING
+  READY_FOR_PICKUP
+  SHIPPED
+  CANCELLED
+}
+
+enum FulfillmentType {
+  DELIVERY
+  STORE_PICKUP
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String
+  role         Role     @default(CUSTOMER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  orders       Order[]
+}
+
+model Product {
+  id            String          @id @default(cuid())
+  code          String          @unique
+  name          String
+  description   String?         @db.Text
+  franchise     GameFranchise
+  images        String[]
+  isPreOrder    Boolean         @default(false)
+  releaseDate   DateTime?
+  baseUnitName  String          @default("ซอง")
+  baseStock     Int             @default(0)
+  packsPerBox   Int             @default(16)
+  boxesPerCarton Int            @default(16)
+  isActive      Boolean         @default(true)
+  variants      ProductVariant[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([franchise])
+  @@index([code])
+}
+
+model ProductVariant {
+  id          String       @id @default(cuid())
+  productId   String
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type        VariantType
+  name        String
+  sku         String       @unique
+  price       Decimal      @db.Decimal(10, 2)
+  multiplier  Int          @default(1)
+  orderItems  OrderItem[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([productId])
+}
+
+model Order {
+  id               String          @id @default(cuid())
+  orderNumber      String          @unique
+  userId           String?
+  user             User?           @relation(fields: [userId], references: [id])
+  customerName     String
+  customerPhone    String
+  customerEmail    String?
+  shippingAddress  String?         @db.Text
+  fulfillmentType  FulfillmentType
+  status           OrderStatus     @default(PENDING_PAYMENT)
+  totalAmount      Decimal         @db.Decimal(10, 2)
+  shippingFee      Decimal         @default(0) @db.Decimal(10, 2)
+  paymentSlipUrl   String?
+  paidAt           DateTime?
+  expiresAt        DateTime
+  trackingNumber   String?
+  items            OrderItem[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([orderNumber])
+  @@index([status])
+}
+
+model OrderItem {
+  id                String         @id @default(cuid())
+  orderId           String
+  order             Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId         String
+  variant           ProductVariant @relation(fields: [variantId], references: [id])
+  quantity          Int
+  unitPrice         Decimal        @db.Decimal(10, 2)
+  deductedBaseUnits Int
+  createdAt         DateTime       @default(now())
+}
+
+model ShopSetting {
+  id            String   @id @default("default")
+  address       String   @default("123/45 ถนนเจริญกรุง แขวงวังบูรพาภิรมย์ เขตพระนคร กรุงเทพฯ 10200")
+  phone         String   @default("081-999-8888 (ฝ่ายบริการลูกค้า)")
+  businessHours String   @default("เปิดบริการทุกวัน 10:00 - 20:00 น.")
+  updatedAt     DateTime @updatedAt
+}
+
