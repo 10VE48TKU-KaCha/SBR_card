@@ -31,7 +31,7 @@ interface VariantFormItem {
   type: VariantType;
   name: string;
   sku: string;
-  price: number;
+  price: number | string;
   multiplier: number;
 }
 
@@ -83,21 +83,21 @@ export function ProductManagerClient({
       type: VariantType.SINGLE_PACK,
       name: "แบบซอง (Single Pack)",
       sku: "",
-      price: 70,
+      price: "",
       multiplier: 1,
     },
     {
       type: VariantType.BOOSTER_BOX,
       name: "แบบกล่อง (Booster Box)",
       sku: "",
-      price: 1050,
+      price: "",
       multiplier: 16,
     },
     {
       type: VariantType.CARTON_CASE,
       name: "แบบลัง (Carton Case)",
       sku: "",
-      price: 16000,
+      price: "",
       multiplier: 256,
     },
   ]);
@@ -127,21 +127,21 @@ export function ProductManagerClient({
         type: VariantType.SINGLE_PACK,
         name: "แบบซอง (Single Pack)",
         sku: "",
-        price: 70,
+        price: "",
         multiplier: 1,
       },
       {
         type: VariantType.BOOSTER_BOX,
         name: "แบบกล่อง (Booster Box)",
         sku: "",
-        price: 1050,
+        price: "",
         multiplier: 16,
       },
       {
         type: VariantType.CARTON_CASE,
         name: "แบบลัง (Carton Case)",
         sku: "",
-        price: 16000,
+        price: "",
         multiplier: 256,
       },
     ]);
@@ -218,7 +218,7 @@ export function ProductManagerClient({
         throw new Error(data.error || "อัปโหลดภาพไม่สำเร็จ");
       }
 
-      setImages((prev) => [...prev, data.url]);
+      setImages((prev) => [...prev, data.dataUri || data.url]);
     } catch (err: any) {
       setError(err.message || "เกิดข้อผิดพลาดในการอัปโหลดภาพ");
     } finally {
@@ -242,6 +242,7 @@ export function ProductManagerClient({
         .filter((v) => allowSinglePack || v.type !== VariantType.SINGLE_PACK)
         .map((v, i) => ({
           ...v,
+          price: Number(v.price) || 0,
           sku: v.sku.trim() || `${code.trim().toUpperCase()}-V${i + 1}`,
         }));
 
@@ -333,6 +334,7 @@ export function ProductManagerClient({
                             src={p.images[0] || "/logos/sp-logo.png"}
                             alt=""
                             fill
+                            unoptimized
                             className="object-cover"
                           />
                         </div>
@@ -651,7 +653,7 @@ export function ProductManagerClient({
                       key={idx}
                       className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 group"
                     >
-                      <Image src={img} alt="" fill className="object-cover" />
+                      <Image src={img} alt="" fill unoptimized className="object-cover" />
                       <button
                         type="button"
                         onClick={() => setImages(images.filter((_, i) => i !== idx))}
@@ -764,9 +766,10 @@ export function ProductManagerClient({
                             type="number"
                             min="0"
                             step="any"
-                            value={v.price}
+                            placeholder="ระบุราคา..."
+                            value={v.price === 0 || v.price === "" ? "" : v.price}
                             onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
+                              const val = e.target.value;
                               setVariants((prev) =>
                                 prev.map((item) =>
                                   item.type === v.type ? { ...item, price: val } : item

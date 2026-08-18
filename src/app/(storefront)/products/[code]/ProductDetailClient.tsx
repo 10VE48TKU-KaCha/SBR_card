@@ -170,6 +170,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               src={activeImage}
               alt={product.name}
               fill
+              unoptimized
               className="object-cover"
               priority
             />
@@ -214,7 +215,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                       : "border-slate-800 opacity-60 hover:opacity-100"
                   }`}
                 >
-                  <Image src={img} alt="" fill className="object-cover" />
+                  <Image src={img} alt="" fill unoptimized className="object-cover" />
                 </button>
               ))}
             </div>
