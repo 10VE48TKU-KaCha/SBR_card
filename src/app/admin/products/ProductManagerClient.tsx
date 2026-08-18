@@ -691,60 +691,72 @@ export function ProductManagerClient({
                 <div className="space-y-2">
                   {variants
                     .filter((v) => allowSinglePack || v.type !== VariantType.SINGLE_PACK)
-                    .map((v, idx) => (
-                    <div
-                      key={idx}
-                      className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center p-2 rounded-xl bg-[#0b0f19] border border-slate-800 text-xs"
-                    >
-                      <div>
-                        <span className="text-[11px] text-slate-400 block">ชื่อตัวเลือก</span>
-                        <input
-                          type="text"
-                          value={v.name}
-                          onChange={(e) => {
-                            const newV = [...variants];
-                            newV[idx].name = e.target.value;
-                            setVariants(newV);
-                          }}
-                          className="w-full bg-transparent font-semibold text-slate-200 focus:outline-none"
-                        />
-                      </div>
+                    .map((v) => (
+                      <div
+                        key={v.type}
+                        className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center p-3 rounded-xl bg-[#0b0f19] border border-slate-800 text-xs"
+                      >
+                        <div>
+                          <span className="text-[11px] text-slate-400 block mb-1">ชื่อตัวเลือก</span>
+                          <input
+                            type="text"
+                            value={v.name}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setVariants((prev) =>
+                                prev.map((item) =>
+                                  item.type === v.type ? { ...item, name: val } : item
+                                )
+                              );
+                            }}
+                            className="w-full bg-[#131b2e] border border-slate-700 focus:border-gold-400 rounded-lg px-2.5 py-1.5 font-semibold text-slate-100 focus:outline-none"
+                          />
+                        </div>
 
-                      <div>
-                        <span className="text-[11px] text-slate-400 block">ราคา (บาท)</span>
-                        <input
-                          type="number"
-                          value={v.price}
-                          onChange={(e) => {
-                            const newV = [...variants];
-                            newV[idx].price = parseFloat(e.target.value) || 0;
-                            setVariants(newV);
-                          }}
-                          className="w-full bg-transparent font-mono text-gold-300 font-bold focus:outline-none"
-                        />
-                      </div>
+                        <div>
+                          <span className="text-[11px] text-slate-400 block mb-1">ราคา (บาท)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={v.price}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setVariants((prev) =>
+                                prev.map((item) =>
+                                  item.type === v.type ? { ...item, price: val } : item
+                                )
+                              );
+                            }}
+                            className="w-full bg-[#131b2e] border border-slate-700 focus:border-gold-400 rounded-lg px-2.5 py-1.5 font-mono text-gold-300 font-bold focus:outline-none"
+                          />
+                        </div>
 
-                      <div>
-                        <span className="text-[11px] text-slate-400 block">ตัวคูณ Base Unit</span>
-                        <input
-                          type="number"
-                          value={v.multiplier}
-                          onChange={(e) => {
-                            const newV = [...variants];
-                            newV[idx].multiplier = parseInt(e.target.value) || 1;
-                            setVariants(newV);
-                          }}
-                          className="w-full bg-transparent font-mono text-slate-300 focus:outline-none"
-                        />
-                      </div>
+                        <div>
+                          <span className="text-[11px] text-slate-400 block mb-1">ตัวคูณ Base Unit</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={v.multiplier}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 1;
+                              setVariants((prev) =>
+                                prev.map((item) =>
+                                  item.type === v.type ? { ...item, multiplier: val } : item
+                                )
+                              );
+                            }}
+                            className="w-full bg-[#131b2e] border border-slate-700 focus:border-gold-400 rounded-lg px-2.5 py-1.5 font-mono text-slate-200 focus:outline-none"
+                          />
+                        </div>
 
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400">
-                          เทียบเท่า {v.multiplier} {baseUnitName}
-                        </span>
+                        <div className="text-right sm:self-end sm:pb-2">
+                          <span className="text-[10px] text-slate-400">
+                            เทียบเท่า {v.multiplier} {baseUnitName}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
 
