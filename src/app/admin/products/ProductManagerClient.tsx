@@ -71,6 +71,8 @@ export function ProductManagerClient({
   const [releaseDate, setReleaseDate] = useState("");
   const [allowSinglePack, setAllowSinglePack] = useState(true);
   const [baseUnitName, setBaseUnitName] = useState("ซอง");
+  const [selectedUnitOption, setSelectedUnitOption] = useState<string>("ซอง");
+  const [customBaseUnitName, setCustomBaseUnitName] = useState<string>("");
   const [packsPerBox, setPacksPerBox] = useState<number>(16);
   const [boxesPerCarton, setBoxesPerCarton] = useState<number>(16);
   const [baseStock, setBaseStock] = useState<number>(0);
@@ -115,6 +117,8 @@ export function ProductManagerClient({
     setReleaseDate("");
     setAllowSinglePack(true);
     setBaseUnitName("ซอง");
+    setSelectedUnitOption("ซอง");
+    setCustomBaseUnitName("");
     setPacksPerBox(16);
     setBoxesPerCarton(16);
     setBaseStock(100);
@@ -158,7 +162,16 @@ export function ProductManagerClient({
       (v) => v.type === VariantType.SINGLE_PACK
     );
     setAllowSinglePack(hasSinglePack);
-    setBaseUnitName(product.baseUnitName || "ซอง");
+    
+    const unit = product.baseUnitName || "ซอง";
+    if (["ซอง", "กล่อง", "ชิ้น"].includes(unit)) {
+      setSelectedUnitOption(unit);
+      setCustomBaseUnitName("");
+    } else {
+      setSelectedUnitOption("custom");
+      setCustomBaseUnitName(unit);
+    }
+    setBaseUnitName(unit);
     setPacksPerBox(product.packsPerBox);
     setBoxesPerCarton(product.boxesPerCarton);
     setBaseStock(product.baseStock);
@@ -541,13 +554,39 @@ export function ProductManagerClient({
                     <label className="text-[11px] text-slate-400 block mb-1">
                       ชื่อหน่วยย่อย (Base Unit)
                     </label>
-                    <input
-                      type="text"
-                      value={baseUnitName}
-                      onChange={(e) => setBaseUnitName(e.target.value)}
-                      placeholder={allowSinglePack ? "ซอง" : "กล่อง"}
-                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100"
-                    />
+                    <select
+                      value={selectedUnitOption}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedUnitOption(val);
+                        if (val !== "custom") {
+                          setBaseUnitName(val);
+                        } else {
+                          setBaseUnitName(customBaseUnitName || "");
+                        }
+                      }}
+                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 font-semibold focus:outline-none focus:border-gold-400"
+                    >
+                      <option value="ซอง">ซอง</option>
+                      <option value="กล่อง">กล่อง</option>
+                      <option value="ชิ้น">ชิ้น</option>
+                      <option value="custom">อื่นๆ (ระบุเอง...)</option>
+                    </select>
+
+                    {selectedUnitOption === "custom" && (
+                      <input
+                        type="text"
+                        required
+                        placeholder="ระบุชื่อหน่วยย่อย..."
+                        value={customBaseUnitName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomBaseUnitName(val);
+                          setBaseUnitName(val);
+                        }}
+                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-1.5 px-3 text-xs text-slate-100 mt-1.5 focus:outline-none focus:border-gold-400"
+                      />
+                    )}
                   </div>
 
                   <div>
@@ -658,7 +697,10 @@ export function ProductManagerClient({
                         const checked = e.target.checked;
                         setAllowSinglePack(checked);
                         if (!checked) {
-                          if (baseUnitName === "ซอง") setBaseUnitName("กล่อง");
+                          if (selectedUnitOption === "ซอง") {
+                            setSelectedUnitOption("กล่อง");
+                            setBaseUnitName("กล่อง");
+                          }
                           setPacksPerBox(1);
                           setVariants((prev) =>
                             prev.map((v) => {
@@ -668,7 +710,10 @@ export function ProductManagerClient({
                             })
                           );
                         } else {
-                          if (baseUnitName === "กล่อง") setBaseUnitName("ซอง");
+                          if (selectedUnitOption === "กล่อง") {
+                            setSelectedUnitOption("ซอง");
+                            setBaseUnitName("ซอง");
+                          }
                           setPacksPerBox(16);
                           setVariants((prev) =>
                             prev.map((v) => {
