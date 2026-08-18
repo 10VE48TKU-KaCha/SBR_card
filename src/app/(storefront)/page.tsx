@@ -309,53 +309,6 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
-
-      {/* Premium Quality & Commitment Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl bg-gradient-to-b from-[#131d33] to-[#0a101d] border border-gold-500/30 p-8 sm:p-12 relative overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-8 space-y-4">
-              <span className="text-xs font-mono tracking-widest text-gold-400 uppercase">
-                Supapburut Toys & Card Games
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-                มุ่งมั่นส่งมอบการ์ดเกมแท้ และบริการด้วยความซื่อสัตย์
-              </h2>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                "ร้านสุภาพบุรุษ" ศูนย์รวมการ์ดเกมระดับแนวหน้า ยึดมั่นในความซื่อสัตย์ ความจริงใจ และการส่งมอบสินค้าลิขสิทธิ์แท้ 100% จากผู้ผลิต Bushiroad, Konami และ Bandai ให้แก่ผู้เล่นชาวไทย พร้อมระบบคำนวณสต็อกอัตโนมัติทั้งแบบซอง กล่อง และลัง
-              </p>
-              <div className="pt-2 flex flex-wrap gap-4 text-xs font-medium text-gold-300">
-                <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-gold-400" />
-                  <span>ของแท้ลิขสิทธิ์ตรงทุกชิ้น</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-gold-400" />
-                  <span>ระบบตัดสต็อกระดับอะตอม</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-gold-400" />
-                  <span>การันตีความพึงพอใจสูงสุด</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="lg:col-span-4 flex justify-center">
-              <div className="text-center p-6 rounded-2xl bg-black/40 border border-gold-500/30">
-                <div className="text-3xl font-extrabold gold-gradient-text">
-                  SUPAPBURUT
-                </div>
-                <div className="text-xs tracking-widest uppercase font-bold text-slate-300 mt-1">
-                  Premium Card Shop
-                </div>
-                <div className="text-[11px] text-slate-400 mt-2">
-                  ศูนย์รวมการ์ดเกมและอุปกรณ์เสริมแท้
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
