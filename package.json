@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "node scripts/build.js",
     "postinstall": "prisma generate",
-    "start": "next start",
+    "start": "npx prisma db push --skip-generate && next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
