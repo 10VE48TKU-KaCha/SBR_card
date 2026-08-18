@@ -17,45 +17,56 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-export const revalidate = 0; // Dynamic dashboard
+export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  // Fetch real statistics from database
-  const [
-    totalOrders,
-    pendingVerificationOrders,
-    pendingPaymentOrders,
-    paidOrders,
-    totalProducts,
-    recentOrders,
-    lowStockProducts,
-  ] = await Promise.all([
-    prisma.order.count(),
-    prisma.order.count({ where: { status: OrderStatus.PENDING_VERIFICATION } }),
-    prisma.order.count({ where: { status: OrderStatus.PENDING_PAYMENT } }),
-    prisma.order.findMany({
-      where: {
-        status: { in: [OrderStatus.PAID, OrderStatus.READY_FOR_PICKUP, OrderStatus.SHIPPED] },
-      },
-      select: { totalAmount: true },
-    }),
-    prisma.product.count(),
-    prisma.order.findMany({
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: {
-        items: {
-          include: {
-            variant: true,
+  // Fetch real statistics from database with fallbacks
+  let totalOrders = 0;
+  let pendingVerificationOrders = 0;
+  let pendingPaymentOrders = 0;
+  let paidOrders: any[] = [];
+  let totalProducts = 0;
+  let recentOrders: any[] = [];
+  let lowStockProducts: any[] = [];
+
+  try {
+    const res = await Promise.all([
+      prisma.order.count(),
+      prisma.order.count({ where: { status: OrderStatus.PENDING_VERIFICATION } }),
+      prisma.order.count({ where: { status: OrderStatus.PENDING_PAYMENT } }),
+      prisma.order.findMany({
+        where: {
+          status: { in: [OrderStatus.PAID, OrderStatus.READY_FOR_PICKUP, OrderStatus.SHIPPED] },
+        },
+        select: { totalAmount: true },
+      }),
+      prisma.product.count(),
+      prisma.order.findMany({
+        take: 5,
+        orderBy: { createdAt: "desc" },
+        include: {
+          items: {
+            include: {
+              variant: true,
+            },
           },
         },
-      },
-    }),
-    prisma.product.findMany({
-      where: { baseStock: { lte: 16 } },
-      take: 4,
-    }),
-  ]);
+      }),
+      prisma.product.findMany({
+        where: { baseStock: { lte: 16 } },
+        take: 4,
+      }),
+    ]);
+    totalOrders = res[0];
+    pendingVerificationOrders = res[1];
+    pendingPaymentOrders = res[2];
+    paidOrders = res[3];
+    totalProducts = res[4];
+    recentOrders = res[5];
+    lowStockProducts = res[6];
+  } catch (error) {
+    console.error("AdminDashboard data fetch error:", error);
+  }
 
   const totalRevenue = paidOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
 

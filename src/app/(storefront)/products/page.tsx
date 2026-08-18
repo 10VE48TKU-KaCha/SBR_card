@@ -24,7 +24,7 @@ interface ProductsPageProps {
   }>;
 }
 
-export const revalidate = 0; // Dynamic catalog
+export const dynamic = "force-dynamic";
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   // Await searchParams in Next.js 15
@@ -69,13 +69,18 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   if (sort === "oldest") orderBy = { createdAt: "asc" };
   if (sort === "code") orderBy = { code: "asc" };
 
-  const products = await prisma.product.findMany({
-    where,
-    include: {
-      variants: true,
-    },
-    orderBy,
-  });
+  let products: any[] = [];
+  try {
+    products = await prisma.product.findMany({
+      where,
+      include: {
+        variants: true,
+      },
+      orderBy,
+    });
+  } catch (error) {
+    console.error("ProductsPage data fetch error:", error);
+  }
 
   const franchiseList = [
     { value: "", label: "ทั้งหมด" },

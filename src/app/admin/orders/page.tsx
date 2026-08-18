@@ -2,37 +2,42 @@ import React from "react";
 import prisma from "@/lib/prisma";
 import { OrderManagerClient } from "./OrderManagerClient";
 
-export const revalidate = 0; // Dynamic
+export const dynamic = "force-dynamic";
 
 export default async function AdminOrdersPage() {
-  const orders = await prisma.order.findMany({
-    include: {
-      items: {
-        include: {
-          variant: {
-            include: {
-              product: {
-                select: {
-                  name: true,
-                  code: true,
+  let orders: any[] = [];
+  try {
+    orders = await prisma.order.findMany({
+      include: {
+        items: {
+          include: {
+            variant: {
+              include: {
+                product: {
+                  select: {
+                    name: true,
+                    code: true,
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    console.error("AdminOrders data fetch error:", error);
+  }
 
-  const serializedOrders = orders.map((o) => ({
+  const serializedOrders = orders.map((o: any) => ({
     ...o,
     totalAmount: Number(o.totalAmount),
     shippingFee: Number(o.shippingFee),
-    createdAt: o.createdAt.toISOString(),
-    expiresAt: o.expiresAt.toISOString(),
+    createdAt: o.createdAt ? o.createdAt.toISOString() : new Date().toISOString(),
+    expiresAt: o.expiresAt ? o.expiresAt.toISOString() : new Date().toISOString(),
     paidAt: o.paidAt ? o.paidAt.toISOString() : null,
-    items: o.items.map((i) => ({
+    items: (o.items || []).map((i: any) => ({
       ...i,
       unitPrice: Number(i.unitPrice),
       variant: {

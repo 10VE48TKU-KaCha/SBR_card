@@ -18,12 +18,17 @@ import {
   Zap,
 } from "lucide-react";
 
-export const revalidate = 60; // ISR cache revalidation
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  // Fetch featured products from PostgreSQL
-  const [preOrderProducts, latestProducts, vanguardProducts, yugiohProducts] =
-    await Promise.all([
+  // Fetch featured products safely with fallback
+  let preOrderProducts: any[] = [];
+  let latestProducts: any[] = [];
+  let vanguardProducts: any[] = [];
+  let yugiohProducts: any[] = [];
+
+  try {
+    const res = await Promise.all([
       prisma.product.findMany({
         where: { isPreOrder: true, isActive: true },
         include: { variants: true },
@@ -47,6 +52,13 @@ export default async function HomePage() {
         take: 4,
       }),
     ]);
+    preOrderProducts = res[0];
+    latestProducts = res[1];
+    vanguardProducts = res[2];
+    yugiohProducts = res[3];
+  } catch (error) {
+    console.error("HomePage data fetch error:", error);
+  }
 
   const franchiseCategories = [
     {
