@@ -35,6 +35,8 @@ async function main() {
     data: {
       email: "customer@example.com",
       name: "สมชาย รักการ์ดเกม",
+      phone: "0891234567",
+      address: "99/12 อาคารการ์ดทาวเวอร์ ชั้น 4 ถ.พหลโยธิน แขวงลาดยาว เขตจตุจักร กทม. 10900",
       role: Role.CUSTOMER,
       passwordHash: "customer_hashed_token",
     },

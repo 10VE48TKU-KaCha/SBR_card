@@ -7,7 +7,15 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { generateDynamicPromptPayQR } from "./promptpay";
 import { calculateStockIntake } from "./stock-calculator";
-
+import {
+  getCurrentUser,
+  hashPassword,
+  verifyPassword,
+  setCustomerSessionCookie,
+  clearCustomerSessionCookie,
+  SafeUser,
+} from "./auth";
+import { cleanPhoneNumber, isValidThaiPhone } from "./utils";
 
 export interface CheckoutInput {
   customerName: string;
@@ -15,6 +23,7 @@ export interface CheckoutInput {
   customerEmail?: string;
   fulfillmentType: FulfillmentType;
   shippingAddress?: string;
+  saveAddressToProfile?: boolean;
   items: {
     variantId: string;
     quantity: number;
@@ -26,16 +35,49 @@ export interface CheckoutInput {
  */
 export async function createOrderAction(input: CheckoutInput) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return {
+        success: false,
+        error: "กรุณาเข้าสู่ระบบก่อนดำเนินการสั่งซื้อ เพื่อให้สามารถติดตามคำสั่งซื้อได้",
+        requireAuth: true,
+      };
+    }
+
     if (!input.items || input.items.length === 0) {
       return { success: false, error: "ไม่มีสินค้าในตะกร้า" };
     }
 
-    if (!input.customerName || !input.customerPhone) {
-      return { success: false, error: "กรุณาระบุชื่อและเบอร์โทรศัพท์" };
+    const cleanPhone = cleanPhoneNumber(input.customerPhone);
+    if (!cleanPhone || !isValidThaiPhone(cleanPhone)) {
+      return {
+        success: false,
+        error: "กรุณาระบุหมายเลขโทรศัพท์ให้ถูกต้อง (เฉพาะตัวเลข 9-10 หลัก เช่น 0812345678)",
+      };
     }
 
-    if (input.fulfillmentType === FulfillmentType.DELIVERY && !input.shippingAddress) {
+    if (!input.customerName || input.customerName.trim().length < 2) {
+      return { success: false, error: "กรุณาระบุชื่อ-นามสกุลของผู้รับสินค้า" };
+    }
+
+    if (input.fulfillmentType === FulfillmentType.DELIVERY && (!input.shippingAddress || !input.shippingAddress.trim())) {
       return { success: false, error: "กรุณาระบุที่อยู่จัดส่งสำหรับบริการจัดส่งพัสดุ" };
+    }
+
+    // Optionally save new address/phone back to user's profile
+    if (input.saveAddressToProfile && input.fulfillmentType === FulfillmentType.DELIVERY && input.shippingAddress) {
+      try {
+        await prisma.user.update({
+          where: { id: currentUser.id },
+          data: {
+            phone: cleanPhone,
+            address: input.shippingAddress.trim(),
+            name: input.customerName.trim(),
+          },
+        });
+      } catch (err) {
+        console.error("Failed to save address to profile:", err);
+      }
     }
 
     // Fetch all variants with their product details
@@ -127,13 +169,14 @@ export async function createOrderAction(input: CheckoutInput) {
         });
       }
 
-      // 2. Create Order
+      // 2. Create Order linked to authenticated User
       const order = await tx.order.create({
         data: {
           orderNumber,
+          userId: currentUser.id,
           customerName: input.customerName.trim(),
-          customerPhone: input.customerPhone.trim(),
-          customerEmail: input.customerEmail?.trim() || null,
+          customerPhone: cleanPhone,
+          customerEmail: input.customerEmail?.trim() || currentUser.email,
           shippingAddress:
             input.fulfillmentType === FulfillmentType.DELIVERY
               ? input.shippingAddress?.trim() || null
@@ -618,4 +661,336 @@ export async function updateShopSettingsAction(data: {
     return { success: false, error: error.message || "ไม่สามารถบันทึกข้อมูลตั้งค่าร้านได้" };
   }
 }
+
+/**
+ * Customer Authentication & Profile Server Actions
+ */
+
+export async function registerCustomerAction(data: {
+  name: string;
+  phone: string;
+  email: string;
+  password: string;
+  address?: string;
+}) {
+  try {
+    const name = data.name.trim();
+    const email = data.email.trim().toLowerCase();
+    const rawPhone = data.phone.trim();
+    const phone = cleanPhoneNumber(rawPhone);
+    const password = data.password.trim();
+    const address = data.address?.trim() || null;
+
+    if (!name || name.length < 2) {
+      return { success: false, error: "กรุณาระบุชื่อ-นามสกุลให้ถูกต้อง (อย่างน้อย 2 ตัวอักษร)" };
+    }
+
+    if (!phone || !isValidThaiPhone(phone)) {
+      return {
+        success: false,
+        error: "กรุณาระบุหมายเลขโทรศัพท์ให้ถูกต้อง (เฉพาะตัวเลข 9-10 หลัก เช่น 0812345678)",
+      };
+    }
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { success: false, error: "กรุณาระบุรูปแบบอีเมลให้ถูกต้อง" };
+    }
+
+    if (!password || password.length < 6) {
+      return { success: false, error: "รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร" };
+    }
+
+    // Check if email is already registered
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return { success: false, error: "อีเมลนี้มีผู้ใช้งานในระบบแล้ว กรุณาใช้อีเมลอื่นหรือเข้าสู่ระบบ" };
+    }
+
+    // Hash password securely
+    const passwordHash = hashPassword(password);
+
+    // Create customer account
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        phone,
+        address,
+        passwordHash,
+        role: "CUSTOMER",
+      },
+    });
+
+    // Set session cookie
+    await setCustomerSessionCookie(user.id);
+
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+        role: user.role,
+      },
+    };
+  } catch (error: any) {
+    console.error("Registration error:", error);
+    return { success: false, error: error.message || "เกิดข้อผิดพลาดในการสมัครสมาชิก กรุณาลองใหม่อีกครั้ง" };
+  }
+}
+
+export async function loginCustomerAction(emailInput: string, passwordInput: string) {
+  try {
+    const email = emailInput.trim().toLowerCase();
+    const password = passwordInput.trim();
+
+    if (!email || !password) {
+      return { success: false, error: "กรุณากรอกอีเมลและรหัสผ่าน" };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user || !user.passwordHash) {
+      return { success: false, error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" };
+    }
+
+    const isMatch = verifyPassword(password, user.passwordHash);
+    if (!isMatch) {
+      return { success: false, error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" };
+    }
+
+    // Set session cookie
+    await setCustomerSessionCookie(user.id);
+
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+        role: user.role,
+      },
+    };
+  } catch (error: any) {
+    console.error("Customer login error:", error);
+    return { success: false, error: error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" };
+  }
+}
+
+export async function logoutCustomerAction() {
+  try {
+    await clearCustomerSessionCookie();
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "เกิดข้อผิดพลาดในการออกจากระบบ" };
+  }
+}
+
+export async function getCurrentUserAction() {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: true, user: null };
+    }
+
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+        role: user.role,
+        createdAt: user.createdAt.toISOString(),
+      },
+    };
+  } catch (error: any) {
+    console.error("Get current user error:", error);
+    return { success: false, user: null };
+  }
+}
+
+export async function updateCustomerProfileAction(data: {
+  name: string;
+  phone: string;
+  address?: string;
+}) {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return { success: false, error: "กรุณาเข้าสู่ระบบก่อนทำรายการ" };
+    }
+
+    const name = data.name.trim();
+    const phone = cleanPhoneNumber(data.phone);
+    const address = data.address?.trim() || null;
+
+    if (!name || name.length < 2) {
+      return { success: false, error: "กรุณาระบุชื่อ-นามสกุลให้ถูกต้อง (อย่างน้อย 2 ตัวอักษร)" };
+    }
+
+    if (phone && !isValidThaiPhone(phone)) {
+      return {
+        success: false,
+        error: "กรุณาระบุหมายเลขโทรศัพท์ให้ถูกต้อง (เฉพาะตัวเลข 9-10 หลัก เช่น 0812345678)",
+      };
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: currentUser.id },
+      data: {
+        name,
+        phone: phone || null,
+        address,
+      },
+    });
+
+    revalidatePath("/profile");
+    revalidatePath("/checkout");
+
+    return {
+      success: true,
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        address: updatedUser.address,
+        role: updatedUser.role,
+      },
+    };
+  } catch (error: any) {
+    console.error("Update profile error:", error);
+    return { success: false, error: error.message || "เกิดข้อผิดพลาดในการอัปเดตข้อมูลโปรไฟล์" };
+  }
+}
+
+export async function changeCustomerPasswordAction(data: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return { success: false, error: "กรุณาเข้าสู่ระบบก่อนทำรายการ" };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: currentUser.id },
+    });
+
+    if (!user || !user.passwordHash) {
+      return { success: false, error: "ไม่พบข้อมูลบัญชีผู้ใช้" };
+    }
+
+    const isMatch = verifyPassword(data.currentPassword.trim(), user.passwordHash);
+    if (!isMatch) {
+      return { success: false, error: "รหัสผ่านปัจจุบันไม่ถูกต้อง" };
+    }
+
+    if (!data.newPassword || data.newPassword.trim().length < 6) {
+      return { success: false, error: "รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร" };
+    }
+
+    const newHash = hashPassword(data.newPassword.trim());
+
+    await prisma.user.update({
+      where: { id: currentUser.id },
+      data: { passwordHash: newHash },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Change password error:", error);
+    return { success: false, error: error.message || "เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน" };
+  }
+}
+
+export async function getCustomerOrdersAction() {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return { success: false, error: "กรุณาเข้าสู่ระบบเพื่อดูประวัติคำสั่งซื้อ", orders: [] };
+    }
+
+    const orders = await prisma.order.findMany({
+      where: {
+        OR: [
+          { userId: currentUser.id },
+          ...(currentUser.email ? [{ customerEmail: currentUser.email }] : []),
+          ...(currentUser.phone ? [{ customerPhone: currentUser.phone }] : []),
+        ],
+      },
+      include: {
+        items: {
+          include: {
+            variant: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const serializedOrders = orders.map((order) => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerEmail: order.customerEmail,
+      shippingAddress: order.shippingAddress,
+      fulfillmentType: order.fulfillmentType,
+      status: order.status,
+      totalAmount: Number(order.totalAmount),
+      shippingFee: Number(order.shippingFee),
+      paymentSlipUrl: order.paymentSlipUrl,
+      paidAt: order.paidAt ? order.paidAt.toISOString() : null,
+      expiresAt: order.expiresAt.toISOString(),
+      trackingNumber: order.trackingNumber,
+      createdAt: order.createdAt.toISOString(),
+      items: order.items.map((item) => ({
+        id: item.id,
+        variantId: item.variantId,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        deductedBaseUnits: item.deductedBaseUnits,
+        variant: {
+          id: item.variant.id,
+          name: item.variant.name,
+          type: item.variant.type,
+          sku: item.variant.sku,
+          price: Number(item.variant.price),
+          product: {
+            id: item.variant.product.id,
+            name: item.variant.product.name,
+            code: item.variant.product.code,
+            images: item.variant.product.images,
+            franchise: item.variant.product.franchise,
+          },
+        },
+      })),
+    }));
+
+    return { success: true, orders: serializedOrders };
+  } catch (error: any) {
+    console.error("Get customer orders error:", error);
+    return { success: false, error: error.message || "ไม่สามารถดึงข้อมูลประวัติคำสั่งซื้อได้", orders: [] };
+  }
+}
+
 

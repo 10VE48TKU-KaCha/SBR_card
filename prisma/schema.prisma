@@ -49,6 +49,8 @@ model User {
   email        String   @unique
   passwordHash String?
   name         String
+  phone        String?
+  address      String?  @db.Text
   role         Role     @default(CUSTOMER)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

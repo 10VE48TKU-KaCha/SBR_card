@@ -56,12 +56,33 @@ export function formatDateShort(date: Date | string | null | undefined): string 
   }).format(d);
 }
 
-export function formatPhoneNumber(phone: string): string {
-  const clean = phone.replace(/[^0-9]/g, "");
+/**
+ * Cleans phone input to contain only digits (0-9) and limits max length to 10.
+ */
+export function cleanPhoneNumber(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.replace(/\D/g, "").slice(0, 10);
+}
+
+/**
+ * Validates whether the phone number is a standard Thai mobile or landline format (9-10 digits starting with 0).
+ */
+export function isValidThaiPhone(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const digits = cleanPhoneNumber(value);
+  return /^0[0-9]{8,9}$/.test(digits);
+}
+
+export function formatPhoneNumber(phone: string | null | undefined): string {
+  if (!phone) return "-";
+  const clean = cleanPhoneNumber(phone);
   if (clean.length === 10) {
     return `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6)}`;
   }
-  return phone;
+  if (clean.length === 9) {
+    return `${clean.slice(0, 2)}-${clean.slice(2, 5)}-${clean.slice(5)}`;
+  }
+  return clean || phone;
 }
 
 export function getFranchiseLabel(franchise: GameFranchise): string {
@@ -176,5 +197,29 @@ export function getOrderStatusInfo(status: OrderStatus): {
         dotClass: "bg-slate-400",
         description: "",
       };
+  }
+}
+
+export function getOrderStatusLabel(status: OrderStatus): string {
+  return getOrderStatusInfo(status).label;
+}
+
+export function getOrderStatusBadgeStyle(status: OrderStatus): { bg: string; text: string; border: string } {
+  switch (status) {
+    case OrderStatus.PENDING_PAYMENT:
+      return { bg: "bg-amber-950/80", text: "text-amber-300", border: "border-amber-500/40" };
+    case OrderStatus.PENDING_VERIFICATION:
+      return { bg: "bg-blue-950/80", text: "text-blue-300", border: "border-blue-500/40" };
+    case OrderStatus.PAID:
+      return { bg: "bg-emerald-950/80", text: "text-emerald-300", border: "border-emerald-500/40" };
+    case OrderStatus.PREPARING:
+      return { bg: "bg-indigo-950/80", text: "text-indigo-300", border: "border-indigo-500/40" };
+    case OrderStatus.READY_FOR_PICKUP:
+      return { bg: "bg-purple-950/80", text: "text-purple-300", border: "border-purple-500/40" };
+    case OrderStatus.SHIPPED:
+      return { bg: "bg-cyan-950/80", text: "text-cyan-300", border: "border-cyan-500/40" };
+    case OrderStatus.CANCELLED:
+    default:
+      return { bg: "bg-rose-950/80", text: "text-rose-300", border: "border-rose-500/40" };
   }
 }

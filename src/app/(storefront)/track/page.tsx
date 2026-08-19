@@ -34,7 +34,10 @@ export default function TrackPage() {
           ตรวจสอบสถานะคำสั่งซื้อ
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
-          กรอกหมายเลขคำสั่งซื้อที่ได้รับ หรือรหัสคำสั่งซื้อเพื่อดูสถานะการชำระเงินและหมายเลขพัสดุ
+          กรอกหมายเลขคำสั่งซื้อที่ได้รับเพื่อดูสถานะการชำระเงินและหมายเลขพัสดุ หรือ{" "}
+          <Link href="/profile?tab=orders" className="text-gold-400 hover:text-gold-300 font-bold underline underline-offset-2">
+            ดูประวัติคำสั่งซื้อทั้งหมดในโปรไฟล์
+          </Link>
         </p>
       </div>
 

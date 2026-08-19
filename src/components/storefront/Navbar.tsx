@@ -1,24 +1,65 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import Link from "next/navigation";
+import React, { useState, useEffect, useRef } from "react";
 import NextLink from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ShoppingBag, Search, ShieldCheck, Menu, X, Sparkles, ExternalLink } from "lucide-react";
+import {
+  ShoppingBag,
+  Search,
+  Menu,
+  X,
+  User,
+  LogIn,
+  LogOut,
+  Package,
+  ChevronDown,
+  ShieldCheck,
+  MapPin,
+  Sparkles,
+} from "lucide-react";
 import { useCartStore } from "@/store/cart-store";
+import { getCurrentUserAction, logoutCustomerAction } from "@/lib/actions";
 
 export function Navbar() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
   const { toggleCart, getTotalItems } = useCartStore();
   const totalItems = getTotalItems();
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsMounted(true);
+    loadUser();
+
+    // Close user dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const loadUser = async () => {
+    try {
+      const res = await getCurrentUserAction();
+      if (res.success && res.user) {
+        setUser(res.user);
+      } else {
+        setUser(null);
+      }
+    } catch {
+      setUser(null);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +68,15 @@ export function Navbar() {
     } else {
       router.push("/products");
     }
+  };
+
+  const handleLogout = async () => {
+    setIsUserMenuOpen(false);
+    setIsMobileMenuOpen(false);
+    await logoutCustomerAction();
+    setUser(null);
+    router.push("/");
+    router.refresh();
   };
 
   const navLinks = [
@@ -47,13 +97,23 @@ export function Navbar() {
           <span>ร้านสุภาพบุรุษการ์ดเกม • ศูนย์รวมการ์ดเกมแท้และอุปกรณ์เสริมพรีเมียม</span>
         </div>
         <div className="flex items-center justify-center sm:justify-end gap-4 w-full sm:w-auto">
-          <NextLink
-            href="/track"
-            className="hover:text-gold-300 transition-colors flex items-center gap-1 text-slate-300"
-          >
-            <Search className="w-3 h-3 text-gold-400" />
-            <span>เช็คสถานะคำสั่งซื้อ</span>
-          </NextLink>
+          {user ? (
+            <NextLink
+              href="/profile?tab=orders"
+              className="hover:text-gold-300 transition-colors flex items-center gap-1 text-slate-300"
+            >
+              <Package className="w-3 h-3 text-gold-400" />
+              <span>ประวัติคำสั่งซื้อของฉัน</span>
+            </NextLink>
+          ) : (
+            <NextLink
+              href="/track"
+              className="hover:text-gold-300 transition-colors flex items-center gap-1 text-slate-300"
+            >
+              <Search className="w-3 h-3 text-gold-400" />
+              <span>เช็คสถานะคำสั่งซื้อ</span>
+            </NextLink>
+          )}
         </div>
       </div>
 
@@ -86,7 +146,6 @@ export function Navbar() {
             </div>
           </NextLink>
 
-
           {/* Search Bar (Desktop) */}
           <form
             onSubmit={handleSearch}
@@ -108,8 +167,76 @@ export function Navbar() {
             </button>
           </form>
 
-          {/* Action Icons */}
+          {/* Action Icons & User Account */}
           <div className="flex items-center gap-3">
+            {/* User Account Button (Desktop) */}
+            {isMounted && (
+              <div className="hidden md:block relative" ref={userMenuRef}>
+                {user ? (
+                  <div>
+                    <button
+                      onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                      className="flex items-center gap-2 py-1.5 pl-2 pr-3 rounded-xl bg-[#131b2e] border border-gold-500/40 hover:border-gold-400 text-slate-200 transition-all shadow-sm"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-gold-400 to-amber-600 flex items-center justify-center text-slate-950 font-bold text-xs uppercase">
+                        {user.name ? user.name.charAt(0) : "U"}
+                      </div>
+                      <span className="text-xs font-bold max-w-[120px] truncate text-slate-100">
+                        {user.name}
+                      </span>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {isUserMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-[#0f1728] border border-gold-500/30 shadow-2xl p-2 space-y-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                        <div className="px-3 py-2 border-b border-slate-800">
+                          <p className="text-xs font-bold text-white truncate">{user.name}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
+                        </div>
+
+                        <NextLink
+                          href="/profile"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-gold-300 hover:bg-slate-800/60 transition-colors"
+                        >
+                          <User className="w-4 h-4 text-gold-400" />
+                          <span>โปรไฟล์ & ที่อยู่จัดส่ง</span>
+                        </NextLink>
+
+                        <NextLink
+                          href="/profile?tab=orders"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-gold-300 hover:bg-slate-800/60 transition-colors"
+                        >
+                          <Package className="w-4 h-4 text-gold-400" />
+                          <span>ประวัติคำสั่งซื้อของฉัน</span>
+                        </NextLink>
+
+                        <div className="pt-1 border-t border-slate-800">
+                          <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-rose-400 hover:bg-rose-950/40 transition-colors"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            <span>ออกจากระบบ</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <NextLink
+                    href="/login"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#131b2e] border border-slate-700/80 hover:border-gold-400 text-xs font-bold text-slate-200 hover:text-gold-300 transition-all shadow-sm"
+                  >
+                    <LogIn className="w-3.5 h-3.5 text-gold-400" />
+                    <span>เข้าสู่ระบบ / สมัคร</span>
+                  </NextLink>
+                )}
+              </div>
+            )}
+
             {/* Cart Button */}
             <button
               onClick={toggleCart}
@@ -151,6 +278,45 @@ export function Navbar() {
       {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-slate-800 bg-[#0b0f19] px-4 pt-3 pb-6 space-y-4">
+          {/* User Status Bar for Mobile */}
+          {user ? (
+            <div className="p-3 rounded-2xl bg-[#131b2e] border border-gold-500/30 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gold-400 to-amber-600 flex items-center justify-center text-slate-950 font-bold text-xs">
+                  {user.name ? user.name.charAt(0) : "U"}
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-white">{user.name}</p>
+                  <p className="text-[10px] text-slate-400">{user.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="text-xs text-rose-400 hover:text-rose-300 px-2 py-1"
+              >
+                ออกจากระบบ
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <NextLink
+                href="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="py-2.5 px-3 rounded-xl bg-gold-500 text-slate-950 font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>เข้าสู่ระบบ</span>
+              </NextLink>
+              <NextLink
+                href="/register"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs text-center flex items-center justify-center gap-1.5"
+              >
+                <span>สมัครสมาชิก</span>
+              </NextLink>
+            </div>
+          )}
+
           <form onSubmit={handleSearch} className="relative">
             <input
               type="text"
@@ -168,7 +334,29 @@ export function Navbar() {
             </button>
           </form>
 
+          {/* Mobile Nav Links */}
           <div className="flex flex-col space-y-1">
+            {user && (
+              <>
+                <NextLink
+                  href="/profile"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg text-gold-300 hover:bg-slate-800/50 text-sm font-medium flex items-center gap-2"
+                >
+                  <User className="w-4 h-4" />
+                  <span>โปรไฟล์ & ที่อยู่จัดส่ง</span>
+                </NextLink>
+                <NextLink
+                  href="/profile?tab=orders"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg text-gold-300 hover:bg-slate-800/50 text-sm font-medium flex items-center gap-2"
+                >
+                  <Package className="w-4 h-4" />
+                  <span>ประวัติคำสั่งซื้อของฉัน</span>
+                </NextLink>
+              </>
+            )}
+
             {navLinks.map((link) => (
               <NextLink
                 key={link.href}
@@ -187,7 +375,7 @@ export function Navbar() {
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-slate-400 hover:text-gold-300 font-medium"
             >
-              🔍 ตรวจสอบสถานะคำสั่งซื้อ
+              🔍 ตรวจสอบสถานะคำสั่งซื้อทั่วไป
             </NextLink>
           </div>
         </div>
