@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import NextLink from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   ShoppingBag,
   Search,
@@ -19,23 +19,25 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useCartStore } from "@/store/cart-store";
-import { getCurrentUserAction, logoutCustomerAction } from "@/lib/actions";
+import { useAuthStore } from "@/store/auth-store";
 
 export function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [user, setUser] = useState<any>(null);
 
+  // Global Auth State
+  const { user, checkAuth, logout } = useAuthStore();
   const { toggleCart, getTotalItems } = useCartStore();
   const totalItems = getTotalItems();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsMounted(true);
-    loadUser();
+    checkAuth();
 
     // Close user dropdown when clicking outside
     const handleClickOutside = (event: MouseEvent) => {
@@ -48,18 +50,10 @@ export function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const loadUser = async () => {
-    try {
-      const res = await getCurrentUserAction();
-      if (res.success && res.user) {
-        setUser(res.user);
-      } else {
-        setUser(null);
-      }
-    } catch {
-      setUser(null);
-    }
-  };
+  // Re-verify auth when pathname changes
+  useEffect(() => {
+    checkAuth();
+  }, [pathname]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,8 +67,7 @@ export function Navbar() {
   const handleLogout = async () => {
     setIsUserMenuOpen(false);
     setIsMobileMenuOpen(false);
-    await logoutCustomerAction();
-    setUser(null);
+    await logout();
     router.push("/");
     router.refresh();
   };
@@ -176,15 +169,15 @@ export function Navbar() {
                   <div>
                     <button
                       onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                      className="flex items-center gap-2 py-1.5 pl-2 pr-3 rounded-xl bg-[#131b2e] border border-gold-500/40 hover:border-gold-400 text-slate-200 transition-all shadow-sm"
+                      className="flex items-center gap-2 py-1.5 pl-2 pr-3 rounded-xl bg-[#131b2e] border border-gold-500/40 hover:border-gold-400 text-slate-200 transition-all shadow-sm group"
                     >
-                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-gold-400 to-amber-600 flex items-center justify-center text-slate-950 font-bold text-xs uppercase">
+                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-gold-400 to-amber-600 flex items-center justify-center text-slate-950 font-bold text-xs uppercase shadow-gold-glow">
                         {user.name ? user.name.charAt(0) : "U"}
                       </div>
-                      <span className="text-xs font-bold max-w-[120px] truncate text-slate-100">
+                      <span className="text-xs font-bold max-w-[120px] truncate text-slate-100 group-hover:text-gold-300">
                         {user.name}
                       </span>
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-gold-300 transition-transform" />
                     </button>
 
                     {/* Dropdown Menu */}
@@ -216,7 +209,7 @@ export function Navbar() {
                         <div className="pt-1 border-t border-slate-800">
                           <button
                             onClick={handleLogout}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-rose-400 hover:bg-rose-950/40 transition-colors"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-rose-400 hover:bg-rose-950/40 transition-colors text-left"
                           >
                             <LogOut className="w-4 h-4" />
                             <span>ออกจากระบบ</span>
@@ -282,7 +275,7 @@ export function Navbar() {
           {user ? (
             <div className="p-3 rounded-2xl bg-[#131b2e] border border-gold-500/30 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gold-400 to-amber-600 flex items-center justify-center text-slate-950 font-bold text-xs">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gold-400 to-amber-600 flex items-center justify-center text-slate-950 font-bold text-xs uppercase shadow-gold-glow">
                   {user.name ? user.name.charAt(0) : "U"}
                 </div>
                 <div>
@@ -292,7 +285,7 @@ export function Navbar() {
               </div>
               <button
                 onClick={handleLogout}
-                className="text-xs text-rose-400 hover:text-rose-300 px-2 py-1"
+                className="text-xs text-rose-400 hover:text-rose-300 px-2 py-1 font-semibold"
               >
                 ออกจากระบบ
               </button>

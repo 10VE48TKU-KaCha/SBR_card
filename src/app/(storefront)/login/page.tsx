@@ -4,6 +4,7 @@ import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loginCustomerAction } from "@/lib/actions";
+import { useAuthStore } from "@/store/auth-store";
 import { Lock, Mail, Eye, EyeOff, LogIn, ArrowRight, ShieldCheck, UserPlus, Sparkles } from "lucide-react";
 
 function LoginForm() {
@@ -37,6 +38,9 @@ function LoginForm() {
       }
 
       // Successful login
+      if (result.user) {
+        useAuthStore.getState().setUser(result.user as any);
+      }
       router.push(redirectPath);
       router.refresh();
     } catch (err: any) {

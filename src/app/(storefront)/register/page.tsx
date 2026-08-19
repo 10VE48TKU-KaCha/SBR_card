@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { registerCustomerAction } from "@/lib/actions";
 import { cleanPhoneNumber, isValidThaiPhone } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth-store";
 import {
   UserPlus,
   User,
@@ -92,6 +93,9 @@ function RegisterForm() {
       }
 
       // Successful registration & auto-login
+      if (result.user) {
+        useAuthStore.getState().setUser(result.user as any);
+      }
       router.push(redirectPath);
       router.refresh();
     } catch (err: any) {

@@ -20,6 +20,7 @@ import {
   getOrderStatusLabel,
   getOrderStatusBadgeStyle,
 } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth-store";
 import {
   User,
   Phone,
@@ -91,6 +92,7 @@ function ProfileContent() {
       }
 
       setUser(userRes.user);
+      useAuthStore.getState().setUser(userRes.user as any);
       setName(userRes.user.name || "");
       setPhone(cleanPhoneNumber(userRes.user.phone || ""));
       setAddress(userRes.user.address || "");
@@ -141,6 +143,7 @@ function ProfileContent() {
       } else {
         setProfileSuccessMsg("บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว");
         setUser(res.user);
+        useAuthStore.getState().setUser(res.user as any);
         setTimeout(() => setProfileSuccessMsg(null), 4000);
       }
     } catch (err: any) {
@@ -195,7 +198,7 @@ function ProfileContent() {
   };
 
   const handleLogout = async () => {
-    await logoutCustomerAction();
+    await useAuthStore.getState().logout();
     router.push("/");
     router.refresh();
   };

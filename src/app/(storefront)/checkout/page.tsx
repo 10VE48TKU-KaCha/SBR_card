@@ -8,6 +8,7 @@ import { useCartStore } from "@/store/cart-store";
 import { FulfillmentType } from "@prisma/client";
 import { createOrderAction, getCurrentUserAction } from "@/lib/actions";
 import { formatCurrency, cleanPhoneNumber, isValidThaiPhone } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth-store";
 import {
   Truck,
   Store,
@@ -58,6 +59,7 @@ export default function CheckoutPage() {
       const res = await getCurrentUserAction();
       if (res.success && res.user) {
         setUser(res.user);
+        useAuthStore.getState().setUser(res.user as any);
         // Pre-fill profile data automatically
         setCustomerName(res.user.name || "");
         setCustomerPhone(cleanPhoneNumber(res.user.phone || ""));
@@ -65,10 +67,12 @@ export default function CheckoutPage() {
         setShippingAddress(res.user.address || "");
       } else {
         setUser(null);
+        useAuthStore.getState().setUser(null);
       }
     } catch (err) {
       console.error("Auth check error:", err);
       setUser(null);
+      useAuthStore.getState().setUser(null);
     } finally {
       setCheckingAuth(false);
     }
