@@ -3,12 +3,14 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { GameFranchise, VariantType } from "@prisma/client";
+import { CardLanguage, GameFranchise, VariantType } from "@prisma/client";
 import {
   formatCurrency,
   formatDateShort,
   getFranchiseBadgeStyle,
   getFranchiseLabel,
+  getRarityBadgeStyle,
+  getLanguageLabel,
 } from "@/lib/utils";
 import { saveProductAction, deleteProductAction } from "@/lib/actions";
 import {
@@ -24,6 +26,8 @@ import {
   X,
   AlertCircle,
   Eye,
+  ShieldCheck,
+  Award,
 } from "lucide-react";
 
 interface VariantFormItem {
@@ -49,6 +53,13 @@ interface ProductItem {
   packsPerBox: number;
   boxesPerCarton: number;
   isActive: boolean;
+  isSingleCard?: boolean;
+  cardNumber?: string | null;
+  rarity?: string | null;
+  cardLanguage?: CardLanguage | null;
+  clanNation?: string | null;
+  cardType?: string | null;
+  foilType?: string | null;
   variants: VariantFormItem[];
 }
 
@@ -60,8 +71,10 @@ export function ProductManagerClient({
   const [products, setProducts] = useState<ProductItem[]>(initialProducts);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
+  const [tableFilter, setTableFilter] = useState<"all" | "sealed" | "single">("all");
 
   // Form states
+  const [isSingleCard, setIsSingleCard] = useState(false);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -69,6 +82,17 @@ export function ProductManagerClient({
   const [images, setImages] = useState<string[]>([]);
   const [isPreOrder, setIsPreOrder] = useState(false);
   const [releaseDate, setReleaseDate] = useState("");
+  
+  // Single card specific form states
+  const [cardNumber, setCardNumber] = useState("");
+  const [rarity, setRarity] = useState("RRR");
+  const [cardLanguage, setCardLanguage] = useState<CardLanguage>(CardLanguage.TH);
+  const [clanNation, setClanNation] = useState("");
+  const [cardType, setCardType] = useState("");
+  const [foilType, setFoilType] = useState("");
+  const [singleCardPrice, setSingleCardPrice] = useState<number | string>(150);
+
+  // Sealed specific form states
   const [allowSinglePack, setAllowSinglePack] = useState(true);
   const [baseUnitName, setBaseUnitName] = useState("ซอง");
   const [selectedUnitOption, setSelectedUnitOption] = useState<string>("ซอง");
@@ -77,7 +101,7 @@ export function ProductManagerClient({
   const [boxesPerCarton, setBoxesPerCarton] = useState<number>(16);
   const [baseStock, setBaseStock] = useState<number>(0);
 
-  // Variants
+  // Variants for sealed
   const [variants, setVariants] = useState<VariantFormItem[]>([
     {
       type: VariantType.SINGLE_PACK,
@@ -106,8 +130,24 @@ export function ProductManagerClient({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const openCreateModal = () => {
+  const getRarityPresets = (franchise: GameFranchise) => {
+    switch (franchise) {
+      case GameFranchise.VANGUARD:
+        return ["DSR", "FFR", "SEC", "SP", "RRR", "RR", "R", "C", "PR"];
+      case GameFranchise.YUGIOH:
+        return ["QCS", "Starlight", "Secret", "Ultra Rare", "Super Rare", "Rare", "Common", "Promo"];
+      case GameFranchise.BUDDYFIGHT:
+        return ["Buddy Rare", "Ultimate Rare", "Secret", "Super Rare", "RRR", "RR", "R"];
+      case GameFranchise.BATTLE_SPIRITS:
+        return ["XX-Rare", "X-Rare", "M-Rare", "Rare", "Common"];
+      default:
+        return ["Secret", "SR", "RRR", "RR", "R", "Common", "Promo"];
+    }
+  };
+
+  const openCreateModal = (forceSingleCard: boolean = false) => {
     setEditingProduct(null);
+    setIsSingleCard(forceSingleCard);
     setCode("");
     setName("");
     setDescription("");
@@ -115,13 +155,24 @@ export function ProductManagerClient({
     setImages([]);
     setIsPreOrder(false);
     setReleaseDate("");
+    
+    // Single card defaults
+    setCardNumber("");
+    setRarity("RRR");
+    setCardLanguage(CardLanguage.TH);
+    setClanNation("");
+    setCardType("");
+    setFoilType("");
+    setSingleCardPrice(150);
+
+    // Sealed defaults
     setAllowSinglePack(true);
     setBaseUnitName("ซอง");
     setSelectedUnitOption("ซอง");
     setCustomBaseUnitName("");
     setPacksPerBox(16);
     setBoxesPerCarton(16);
-    setBaseStock(100);
+    setBaseStock(forceSingleCard ? 4 : 100);
     setVariants([
       {
         type: VariantType.SINGLE_PACK,
@@ -151,6 +202,7 @@ export function ProductManagerClient({
 
   const openEditModal = (product: ProductItem) => {
     setEditingProduct(product);
+    setIsSingleCard(Boolean(product.isSingleCard));
     setCode(product.code);
     setName(product.name);
     setDescription(product.description || "");
@@ -158,13 +210,24 @@ export function ProductManagerClient({
     setImages(product.images || []);
     setIsPreOrder(product.isPreOrder);
     setReleaseDate(product.releaseDate ? product.releaseDate.split("T")[0] : "");
+
+    // Single card fields
+    setCardNumber(product.cardNumber || "");
+    setRarity(product.rarity || "RRR");
+    setCardLanguage(product.cardLanguage || CardLanguage.TH);
+    setClanNation(product.clanNation || "");
+    setCardType(product.cardType || "");
+    setFoilType(product.foilType || "");
+    const singleVar = product.variants?.find((v) => v.type === VariantType.SINGLE_CARD) || product.variants?.[0];
+    setSingleCardPrice(singleVar ? Number(singleVar.price) : 150);
+
     const hasSinglePack = (product.variants || []).some(
       (v) => v.type === VariantType.SINGLE_PACK
     );
     setAllowSinglePack(hasSinglePack);
     
-    const unit = product.baseUnitName || "ซอง";
-    if (["ซอง", "กล่อง", "ชิ้น"].includes(unit)) {
+    const unit = product.baseUnitName || (product.isSingleCard ? "ใบ" : "ซอง");
+    if (["ซอง", "กล่อง", "ชิ้น", "ใบ"].includes(unit)) {
       setSelectedUnitOption(unit);
       setCustomBaseUnitName("");
     } else {
@@ -172,13 +235,13 @@ export function ProductManagerClient({
       setCustomBaseUnitName(unit);
     }
     setBaseUnitName(unit);
-    setPacksPerBox(product.packsPerBox);
-    setBoxesPerCarton(product.boxesPerCarton);
+    setPacksPerBox(product.packsPerBox || 1);
+    setBoxesPerCarton(product.boxesPerCarton || 1);
     setBaseStock(product.baseStock);
     
-    // Ensure default single pack variant exists in form state even if currently omitted
+    // Ensure variants exist in form state
     let formVariants = product.variants || [];
-    if (!hasSinglePack) {
+    if (!product.isSingleCard && !hasSinglePack) {
       formVariants = [
         {
           type: VariantType.SINGLE_PACK,
@@ -237,14 +300,30 @@ export function ProductManagerClient({
     setError(null);
 
     try {
-      // Auto-assign SKUs if blank and filter variants by allowSinglePack
-      const processedVariants = variants
-        .filter((v) => allowSinglePack || v.type !== VariantType.SINGLE_PACK)
-        .map((v, i) => ({
-          ...v,
-          price: Number(v.price) || 0,
-          sku: v.sku.trim() || `${code.trim().toUpperCase()}-V${i + 1}`,
-        }));
+      let processedVariants: any[] = [];
+
+      if (isSingleCard) {
+        // Single card variant
+        const priceNum = Number(singleCardPrice) || 0;
+        processedVariants = [
+          {
+            type: VariantType.SINGLE_CARD,
+            name: `${name.trim()} [${rarity || "Single"}]`,
+            sku: `${code.trim().toUpperCase()}-CARD`,
+            price: priceNum,
+            multiplier: 1,
+          },
+        ];
+      } else {
+        // Sealed variants
+        processedVariants = variants
+          .filter((v) => allowSinglePack || v.type !== VariantType.SINGLE_PACK)
+          .map((v, i) => ({
+            ...v,
+            price: Number(v.price) || 0,
+            sku: v.sku.trim() || `${code.trim().toUpperCase()}-V${i + 1}`,
+          }));
+      }
 
       const res = await saveProductAction({
         id: editingProduct?.id,
@@ -255,10 +334,17 @@ export function ProductManagerClient({
         images,
         isPreOrder,
         releaseDate: releaseDate ? new Date(releaseDate).toISOString() : null,
-        baseUnitName: allowSinglePack ? baseUnitName : (baseUnitName === "ซอง" ? "กล่อง" : baseUnitName),
-        packsPerBox: allowSinglePack ? Number(packsPerBox) : 1,
-        boxesPerCarton: Number(boxesPerCarton),
+        baseUnitName: isSingleCard ? "ใบ" : (allowSinglePack ? baseUnitName : (baseUnitName === "ซอง" ? "กล่อง" : baseUnitName)),
+        packsPerBox: isSingleCard ? 1 : (allowSinglePack ? Number(packsPerBox) : 1),
+        boxesPerCarton: isSingleCard ? 1 : Number(boxesPerCarton),
         baseStock: Number(baseStock),
+        isSingleCard,
+        cardNumber: isSingleCard ? (cardNumber.trim() || null) : null,
+        rarity: isSingleCard ? (rarity.trim() || null) : null,
+        cardLanguage: isSingleCard ? cardLanguage : CardLanguage.TH,
+        clanNation: isSingleCard ? (clanNation.trim() || null) : null,
+        cardType: isSingleCard ? (cardType.trim() || null) : null,
+        foilType: isSingleCard ? (foilType.trim() || null) : null,
         variants: processedVariants,
       });
 
@@ -285,6 +371,12 @@ export function ProductManagerClient({
     }
   };
 
+  const filteredProducts = products.filter((p) => {
+    if (tableFilter === "single") return Boolean(p.isSingleCard);
+    if (tableFilter === "sealed") return !p.isSingleCard;
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -292,19 +384,64 @@ export function ProductManagerClient({
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-2.5">
             <Package className="w-7 h-7 text-gold-400" />
-            <span>จัดการสินค้า & อัตราส่วนบรรจุภัณฑ์</span>
+            <span>จัดการสินค้า & การ์ดแยกใบ</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            กำหนดอัตราส่วน X (ซอง/กล่อง) และ Y (กล่อง/ลัง) พร้อมระบบลายน้ำอัตโนมัติ
+            ลงสินค้ากล่อง/ซอง และการ์ดแยกใบ (Single Cards) พร้อมระบบลายน้ำอัตโนมัติ
           </p>
         </div>
 
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => openCreateModal(true)}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-gold-glow transition-all"
+          >
+            <span>🃏</span>
+            <span>เพิ่มการ์ดแยกใบ (Single Card)</span>
+          </button>
+
+          <button
+            onClick={() => openCreateModal(false)}
+            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-gold-300 border border-gold-500/40 font-bold text-xs flex items-center gap-2 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>เพิ่มสินค้ากล่อง/ซอง</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Category Tab Filter */}
+      <div className="flex items-center gap-2 p-1.5 bg-[#0e1628] rounded-2xl border border-slate-800 w-fit">
         <button
-          onClick={openCreateModal}
-          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-gold-glow transition-all"
+          onClick={() => setTableFilter("all")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            tableFilter === "all"
+              ? "bg-gold-500 text-slate-950 shadow-gold-glow"
+              : "text-slate-400 hover:text-white"
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          <span>เพิ่มสินค้าใหม่</span>
+          ทั้งหมด ({products.length})
+        </button>
+        <button
+          onClick={() => setTableFilter("single")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            tableFilter === "single"
+              ? "bg-amber-500 text-slate-950 shadow-gold-glow"
+              : "text-amber-300 hover:text-amber-200"
+          }`}
+        >
+          <span>🃏</span>
+          <span>การ์ดแยกใบ ({products.filter((p) => p.isSingleCard).length})</span>
+        </button>
+        <button
+          onClick={() => setTableFilter("sealed")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            tableFilter === "sealed"
+              ? "bg-gold-500 text-slate-950 shadow-gold-glow"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          กล่อง & ซอง ({products.filter((p) => !p.isSingleCard).length})
         </button>
       </div>
 
@@ -315,16 +452,19 @@ export function ProductManagerClient({
             <thead className="border-b border-slate-800 text-slate-400">
               <tr>
                 <th className="pb-3 font-semibold">รูปภาพ & รหัส</th>
-                <th className="pb-3 font-semibold">ชื่อสินค้า</th>
-                <th className="pb-3 font-semibold">แฟรนไชส์</th>
-                <th className="pb-3 font-semibold">อัตราส่วน (X/Y)</th>
-                <th className="pb-3 font-semibold">สต็อกรวม (Base Units)</th>
+                <th className="pb-3 font-semibold">ชื่อสินค้า / การ์ด</th>
+                <th className="pb-3 font-semibold">แฟรนไชส์ / ประเภท</th>
+                <th className="pb-3 font-semibold">รายละเอียด / อัตราส่วน</th>
+                <th className="pb-3 font-semibold">สต็อกคงเหลือ</th>
                 <th className="pb-3 font-semibold text-right">การจัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {products.map((p) => {
+              {filteredProducts.map((p) => {
                 const badge = getFranchiseBadgeStyle(p.franchise);
+                const isSingle = Boolean(p.isSingleCard);
+                const rarityBadge = isSingle && p.rarity ? getRarityBadgeStyle(p.rarity) : null;
+
                 return (
                   <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
                     <td className="py-3.5">
@@ -338,22 +478,51 @@ export function ProductManagerClient({
                             className="object-cover"
                           />
                         </div>
-                        <span className="font-mono font-bold text-slate-200">{p.code}</span>
+                        <div>
+                          <span className="font-mono font-bold text-slate-200 block">{p.code}</span>
+                          {isSingle && p.cardNumber && (
+                            <span className="text-[10px] font-mono text-slate-400 block">
+                              {p.cardNumber}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
 
                     <td className="py-3.5 max-w-xs">
                       <div className="font-semibold text-slate-100 line-clamp-1">{p.name}</div>
-                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                        {p.isPreOrder && (
-                          <span className="text-[10px] text-rose-400 font-bold">
-                            [Pre-Order {p.releaseDate ? formatDateShort(p.releaseDate) : ""}]
-                          </span>
-                        )}
-                        {!p.variants.some((v) => v.type === VariantType.SINGLE_PACK) && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 font-medium">
-                            🚫 ปิดขายแบบซอง
-                          </span>
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                        {isSingle ? (
+                          <>
+                            {p.rarity && rarityBadge && (
+                              <span
+                                className={`px-2 py-0.2 rounded text-[10px] font-extrabold uppercase border ${rarityBadge.bg} ${rarityBadge.text} ${rarityBadge.border}`}
+                              >
+                                {p.rarity}
+                              </span>
+                            )}
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                              {getLanguageLabel(p.cardLanguage)}
+                            </span>
+                            {p.clanNation && (
+                              <span className="text-[10px] text-slate-400">
+                                ({p.clanNation})
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {p.isPreOrder && (
+                              <span className="text-[10px] text-rose-400 font-bold">
+                                [Pre-Order {p.releaseDate ? formatDateShort(p.releaseDate) : ""}]
+                              </span>
+                            )}
+                            {!p.variants.some((v) => v.type === VariantType.SINGLE_PACK) && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 font-medium">
+                                🚫 ปิดขายแบบซอง
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
@@ -364,16 +533,34 @@ export function ProductManagerClient({
                       >
                         {getFranchiseLabel(p.franchise)}
                       </span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">
+                        {isSingle ? "🃏 การ์ดแยกใบ" : "📦 สินค้ากล่อง/ซอง"}
+                      </span>
                     </td>
 
                     <td className="py-3.5 font-mono text-slate-300">
-                      <div>X = {p.packsPerBox} ซอง/กล่อง</div>
-                      <div className="text-[10px] text-slate-400">Y = {p.boxesPerCarton} กล่อง/ลัง</div>
+                      {isSingle ? (
+                        <div>
+                          <div className="text-gold-300 font-bold">
+                            {formatCurrency(p.variants?.[0]?.price || 0)} / ใบ
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {p.cardType || "การ์ดเดี่ยว"} • {p.foilType || "แท้ 100%"}
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div>X = {p.packsPerBox} ซอง/กล่อง</div>
+                          <div className="text-[10px] text-slate-400">Y = {p.boxesPerCarton} กล่อง/ลัง</div>
+                        </div>
+                      )}
                     </td>
 
                     <td className="py-3.5 font-mono">
                       <span className="text-sm font-bold text-gold-300">{p.baseStock}</span>{" "}
-                      <span className="text-[11px] text-slate-400">{p.baseUnitName}</span>
+                      <span className="text-[11px] text-slate-400">
+                        {isSingle ? "ใบ" : p.baseUnitName}
+                      </span>
                     </td>
 
                     <td className="py-3.5 text-right space-x-2 whitespace-nowrap">
@@ -420,10 +607,17 @@ export function ProductManagerClient({
           <div className="relative w-full max-w-4xl bg-[#0e1628] border border-gold-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 z-10 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Package className="w-5 h-5 text-gold-400" />
-                <span>{editingProduct ? "แก้ไขสินค้า" : "สร้างสินค้าใหม่"}</span>
-              </h2>
+              <div className="space-y-1">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Package className="w-5 h-5 text-gold-400" />
+                  <span>{editingProduct ? "แก้ไขข้อมูลสินค้า" : isSingleCard ? "เพิ่มการ์ดแยกใบ (Single Card)" : "สร้างสินค้ากล่อง/ซองใหม่"}</span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  {isSingleCard
+                    ? "กรอกข้อมูลรหัสการ์ด, ระดับความหายาก (Rarity) และราคาต่อใบ"
+                    : "กำหนดอัตราส่วนซองต่อกล่องและกล่องต่อลัง"}
+                </p>
+              </div>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="p-1 rounded-lg text-slate-400 hover:text-white"
@@ -432,23 +626,40 @@ export function ProductManagerClient({
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="space-y-6">
-              {/* Basic Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    รหัสสินค้า (Product Code) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="เช่น VG-DZ-BT04"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    className="w-full bg-[#131b2e] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 uppercase font-mono"
-                  />
-                </div>
+            {/* Product Type Switcher (If creating new) */}
+            {!editingProduct && (
+              <div className="flex items-center gap-3 p-1.5 bg-[#131b2e] rounded-2xl border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setIsSingleCard(false)}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    !isSingleCard
+                      ? "bg-gold-500 text-slate-950 shadow-md"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Package className="w-4 h-4" />
+                  <span>📦 สินค้ากล่อง & ซอง (Sealed Product)</span>
+                </button>
 
+                <button
+                  type="button"
+                  onClick={() => setIsSingleCard(true)}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    isSingleCard
+                      ? "bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-gold-glow"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <span>🃏</span>
+                  <span>การ์ดแยกใบ (Single Card)</span>
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveProduct} className="space-y-6">
+              {/* Franchise & Basic Codes */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-slate-300 block mb-1">
                     แฟรนไชส์เกม (Franchise) *
@@ -465,25 +676,296 @@ export function ProductManagerClient({
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-1">
+                    รหัสระบบ (System Code) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={isSingleCard ? "เช่น VG-DZ-BT02-001" : "เช่น VG-DZ-BT02"}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    className="w-full bg-[#131b2e] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 uppercase font-mono"
+                  />
+                </div>
+
+                {isSingleCard ? (
+                  <div>
+                    <label className="text-xs font-semibold text-gold-300 block mb-1">
+                      รหัสการ์ด (Card Number) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="เช่น DZ-BT02/001TH หรือ RC04-JP001"
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(e.target.value)}
+                      className="w-full bg-[#131b2e] border border-gold-500/50 rounded-xl py-2 px-3 text-xs text-slate-100 uppercase font-mono"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300 block mb-1">
+                      หน่วยนับหลัก (Base Unit)
+                    </label>
+                    <select
+                      value={selectedUnitOption}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedUnitOption(val);
+                        if (val !== "custom") setBaseUnitName(val);
+                        else setBaseUnitName(customBaseUnitName || "");
+                      }}
+                      className="w-full bg-[#131b2e] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100"
+                    >
+                      <option value="ซอง">ซอง</option>
+                      <option value="กล่อง">กล่อง</option>
+                      <option value="ชิ้น">ชิ้น</option>
+                      <option value="custom">อื่นๆ (ระบุเอง...)</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
+              {/* Product Name */}
               <div>
                 <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  ชื่อสินค้า (Product Name) *
+                  {isSingleCard ? "ชื่อการ์ด (Card Name) *" : "ชื่อสินค้า (Product Name) *"}
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="เช่น Cardfight!! Vanguard DZ-BT04: Absolute Judgment"
+                  placeholder={
+                    isSingleCard
+                      ? "เช่น ลิอาเนิร์น วิวาเช่ (Lianorn Vivace)"
+                      : "เช่น Cardfight!! Vanguard DZ-BT02: Illusions of the Crescent Moon"
+                  }
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-[#131b2e] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100"
                 />
               </div>
 
+              {/* Single Card Specific Attributes Box */}
+              {isSingleCard && (
+                <div className="p-5 rounded-2xl bg-[#131b2e] border border-gold-500/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-gold-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🃏</span>
+                      <span>คุณสมบัติการ์ดแยกใบ (Single Card Specs)</span>
+                    </label>
+                    <span className="text-[10px] text-amber-400/90 font-medium">
+                      ✨ รับประกันการ์ดแท้สภาพใหม่แกะซอง 100%
+                    </span>
+                  </div>
+
+                  {/* Rarity & Presets */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-300 font-semibold">
+                        ระดับความหายาก (Rarity) *
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] text-slate-400">เลือกด่วน:</span>
+                        {getRarityPresets(franchise).map((preset) => (
+                          <button
+                            type="button"
+                            key={preset}
+                            onClick={() => setRarity(preset)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all border ${
+                              rarity.toUpperCase() === preset.toUpperCase()
+                                ? "bg-amber-500 text-slate-950 border-amber-400"
+                                : "bg-slate-800 text-slate-300 border-slate-700 hover:text-gold-300"
+                            }`}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      placeholder="เช่น DSR, FFR, SP, SEC, RRR, RR, R, QCS"
+                      value={rarity}
+                      onChange={(e) => setRarity(e.target.value)}
+                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs font-mono font-bold text-gold-300"
+                    />
+                  </div>
+
+                  {/* Language, Clan, Card Type & Foil */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">
+                        ภาษาการ์ด (Language)
+                      </label>
+                      <select
+                        value={cardLanguage}
+                        onChange={(e) => setCardLanguage(e.target.value as CardLanguage)}
+                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100"
+                      >
+                        <option value={CardLanguage.TH}>ภาษาไทย (TH)</option>
+                        <option value={CardLanguage.JP}>ภาษาญี่ปุ่น (JP)</option>
+                        <option value={CardLanguage.EN}>ภาษาอังกฤษ (EN)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">
+                        แคลน / เนชั่น (Clan/Nation)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="เช่น Stoicheia, Dragon Empire"
+                        value={clanNation}
+                        onChange={(e) => setClanNation(e.target.value)}
+                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">
+                        ประเภทการ์ด (Card Type)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="เช่น Normal Unit, Trigger, Spell"
+                        value={cardType}
+                        onChange={(e) => setCardType(e.target.value)}
+                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">
+                        ชนิดฟอยล์ (Foil Finish)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="เช่น Secret Rare, Holo, Non-Foil"
+                        value={foilType}
+                        onChange={(e) => setFoilType(e.target.value)}
+                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Price & Stock for Single Card */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+                    <div>
+                      <label className="text-xs font-bold text-gold-300 block mb-1">
+                        ราคาจำหน่ายต่อใบ (บาท) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="any"
+                        required
+                        placeholder="เช่น 250"
+                        value={singleCardPrice}
+                        onChange={(e) => setSingleCardPrice(e.target.value)}
+                        className="w-full bg-[#0b0f19] border border-slate-700 focus:border-gold-400 rounded-xl py-2.5 px-3 text-sm font-bold font-mono text-gold-300"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-gold-300 block mb-1">
+                        จำนวนสต็อกคงเหลือ (ใบ) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        placeholder="เช่น 4"
+                        value={baseStock}
+                        onChange={(e) => setBaseStock(parseInt(e.target.value) || 0)}
+                        className="w-full bg-[#0b0f19] border border-slate-700 focus:border-gold-400 rounded-xl py-2.5 px-3 text-sm font-bold font-mono text-slate-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sealed Packaging Ratios (X & Y) & Stock Base */}
+              {!isSingleCard && (
+                <div className="p-4 rounded-2xl bg-[#131b2e] border border-slate-800 space-y-4">
+                  <label className="text-xs font-bold text-gold-300 uppercase tracking-wider block">
+                    ⚙️ กำหนดอัตราส่วนบรรจุภัณฑ์ (Packaging Ratios) & สต็อกเริ่มต้น
+                  </label>
+
+                  <div className={`grid grid-cols-1 ${allowSinglePack ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-3`}>
+                    {allowSinglePack && (
+                      <div>
+                        <label className="text-[11px] text-slate-400 block mb-1">
+                          X: ซองต่อกล่อง (Packs/Box)
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          value={packsPerBox}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 1;
+                            setPacksPerBox(val);
+                            setVariants((prev) =>
+                              prev.map((v) => {
+                                if (v.type === VariantType.BOOSTER_BOX) return { ...v, multiplier: val };
+                                if (v.type === VariantType.CARTON_CASE) return { ...v, multiplier: val * boxesPerCarton };
+                                return v;
+                              })
+                            );
+                          }}
+                          className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 font-mono"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">
+                        Y: กล่องต่อลัง (Boxes/Carton)
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        value={boxesPerCarton}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 1;
+                          setBoxesPerCarton(val);
+                          setVariants((prev) =>
+                            prev.map((v) => {
+                              if (v.type === VariantType.CARTON_CASE)
+                                return { ...v, multiplier: (allowSinglePack ? packsPerBox : 1) * val };
+                              return v;
+                            })
+                          );
+                        }}
+                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">
+                        สต็อกเริ่มต้น (Base Units)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={baseStock}
+                        onChange={(e) => setBaseStock(parseInt(e.target.value) || 0)}
+                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
               <div>
                 <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  รายละเอียดสินค้า
+                  รายละเอียดสินค้า / เอฟเฟกต์การ์ด
                 </label>
                 <textarea
                   rows={3}
@@ -493,147 +975,36 @@ export function ProductManagerClient({
                 />
               </div>
 
-              {/* Packaging Ratios (X & Y) & Stock Base */}
-              <div className="p-4 rounded-2xl bg-[#131b2e] border border-slate-800 space-y-4">
-                <label className="text-xs font-bold text-gold-300 uppercase tracking-wider block">
-                  ⚙️ กำหนดอัตราส่วนบรรจุภัณฑ์ (Packaging Ratios) & สต็อกเริ่มต้น
-                </label>
+              {/* Pre-Order Toggle & Release Date (Sealed) */}
+              {!isSingleCard && (
+                <div className="p-4 rounded-2xl bg-[#131b2e] border border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isPreOrder}
+                      onChange={(e) => setIsPreOrder(e.target.checked)}
+                      className="rounded border-slate-700 text-gold-500 w-4 h-4"
+                    />
+                    <span className="text-xs font-semibold text-slate-200">
+                      🔥 สินค้าสั่งจองล่วงหน้า (Pre-Order)
+                    </span>
+                  </label>
 
-                <div className={`grid grid-cols-1 ${allowSinglePack ? "sm:grid-cols-4" : "sm:grid-cols-3"} gap-3`}>
-                  {allowSinglePack && (
+                  {isPreOrder && (
                     <div>
                       <label className="text-[11px] text-slate-400 block mb-1">
-                        X: ซองต่อกล่อง (Packs/Box)
+                        กำหนดวันวางจำหน่ายอย่างเป็นทางการ
                       </label>
                       <input
-                        type="number"
-                        required
-                        min="1"
-                        value={packsPerBox}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 1;
-                          setPacksPerBox(val);
-                          // Auto update multiplier for box/carton
-                          setVariants((prev) =>
-                            prev.map((v) => {
-                              if (v.type === VariantType.BOOSTER_BOX) return { ...v, multiplier: val };
-                              if (v.type === VariantType.CARTON_CASE) return { ...v, multiplier: val * boxesPerCarton };
-                              return v;
-                            })
-                          );
-                        }}
-                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 font-mono"
+                        type="date"
+                        value={releaseDate}
+                        onChange={(e) => setReleaseDate(e.target.value)}
+                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-1.5 px-3 text-xs text-slate-100"
                       />
                     </div>
                   )}
-
-                  <div>
-                    <label className="text-[11px] text-slate-400 block mb-1">
-                      {allowSinglePack ? "Y: กล่องต่อลัง (Boxes/Carton)" : "กล่องต่อลัง (Boxes/Carton)"}
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      value={boxesPerCarton}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 1;
-                        setBoxesPerCarton(val);
-                        // Auto update multiplier for carton
-                        setVariants((prev) =>
-                          prev.map((v) => {
-                            if (v.type === VariantType.CARTON_CASE)
-                              return { ...v, multiplier: (allowSinglePack ? packsPerBox : 1) * val };
-                            return v;
-                          })
-                        );
-                      }}
-                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] text-slate-400 block mb-1">
-                      ชื่อหน่วยย่อย (Base Unit)
-                    </label>
-                    <select
-                      value={selectedUnitOption}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSelectedUnitOption(val);
-                        if (val !== "custom") {
-                          setBaseUnitName(val);
-                        } else {
-                          setBaseUnitName(customBaseUnitName || "");
-                        }
-                      }}
-                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 font-semibold focus:outline-none focus:border-gold-400"
-                    >
-                      <option value="ซอง">ซอง</option>
-                      <option value="กล่อง">กล่อง</option>
-                      <option value="ชิ้น">ชิ้น</option>
-                      <option value="custom">อื่นๆ (ระบุเอง...)</option>
-                    </select>
-
-                    {selectedUnitOption === "custom" && (
-                      <input
-                        type="text"
-                        required
-                        placeholder="ระบุชื่อหน่วยย่อย..."
-                        value={customBaseUnitName}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCustomBaseUnitName(val);
-                          setBaseUnitName(val);
-                        }}
-                        className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-1.5 px-3 text-xs text-slate-100 mt-1.5 focus:outline-none focus:border-gold-400"
-                      />
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] text-slate-400 block mb-1">
-                      สต็อกเริ่มต้น (Base Units)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={baseStock}
-                      onChange={(e) => setBaseStock(parseInt(e.target.value) || 0)}
-                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
                 </div>
-              </div>
-
-              {/* Pre-Order Toggle & Release Date */}
-              <div className="p-4 rounded-2xl bg-[#131b2e] border border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isPreOrder}
-                    onChange={(e) => setIsPreOrder(e.target.checked)}
-                    className="rounded border-slate-700 text-gold-500 w-4 h-4"
-                  />
-                  <span className="text-xs font-semibold text-slate-200">
-                    🔥 สินค้าสั่งจองล่วงหน้า (Pre-Order)
-                  </span>
-                </label>
-
-                {isPreOrder && (
-                  <div>
-                    <label className="text-[11px] text-slate-400 block mb-1">
-                      กำหนดวันวางจำหน่ายอย่างเป็นทางการ
-                    </label>
-                    <input
-                      type="date"
-                      value={releaseDate}
-                      onChange={(e) => setReleaseDate(e.target.value)}
-                      className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl py-1.5 px-3 text-xs text-slate-100"
-                    />
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* Automated Sharp Watermark Image Uploader */}
               <div className="p-4 rounded-2xl bg-[#131b2e] border border-slate-800 space-y-3">
@@ -651,7 +1022,7 @@ export function ProductManagerClient({
                   {images.map((img, idx) => (
                     <div
                       key={idx}
-                      className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 group"
+                      className="relative w-20 h-24 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 group"
                     >
                       <Image src={img} alt="" fill unoptimized className="object-cover" />
                       <button
@@ -664,7 +1035,7 @@ export function ProductManagerClient({
                     </div>
                   ))}
 
-                  <label className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-700 hover:border-gold-400 flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:text-gold-300 transition-colors">
+                  <label className="w-20 h-24 rounded-xl border-2 border-dashed border-slate-700 hover:border-gold-400 flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:text-gold-300 transition-colors">
                     {uploading ? (
                       <div className="w-5 h-5 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
                     ) : (
@@ -681,130 +1052,6 @@ export function ProductManagerClient({
                       className="hidden"
                     />
                   </label>
-                </div>
-              </div>
-
-              {/* Variants Configuration */}
-              <div className="p-4 rounded-2xl bg-[#131b2e] border border-slate-800 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
-                  <label className="text-xs font-bold text-gold-300 uppercase tracking-wider block">
-                    กำหนดราคาของแต่ละขนาด (Variants)
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer bg-[#0b0f19] px-3 py-1.5 rounded-xl border border-slate-800 hover:border-gold-500/40 transition-colors self-start sm:self-auto">
-                    <input
-                      type="checkbox"
-                      checked={allowSinglePack}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setAllowSinglePack(checked);
-                        if (!checked) {
-                          if (selectedUnitOption === "ซอง") {
-                            setSelectedUnitOption("กล่อง");
-                            setBaseUnitName("กล่อง");
-                          }
-                          setPacksPerBox(1);
-                          setVariants((prev) =>
-                            prev.map((v) => {
-                              if (v.type === VariantType.BOOSTER_BOX) return { ...v, multiplier: 1 };
-                              if (v.type === VariantType.CARTON_CASE) return { ...v, multiplier: boxesPerCarton };
-                              return v;
-                            })
-                          );
-                        } else {
-                          if (selectedUnitOption === "กล่อง") {
-                            setSelectedUnitOption("ซอง");
-                            setBaseUnitName("ซอง");
-                          }
-                          setPacksPerBox(16);
-                          setVariants((prev) =>
-                            prev.map((v) => {
-                              if (v.type === VariantType.SINGLE_PACK) return { ...v, multiplier: 1 };
-                              if (v.type === VariantType.BOOSTER_BOX) return { ...v, multiplier: 16 };
-                              if (v.type === VariantType.CARTON_CASE) return { ...v, multiplier: 16 * boxesPerCarton };
-                              return v;
-                            })
-                          );
-                        }
-                      }}
-                      className="rounded border-slate-700 text-gold-500 w-4 h-4 focus:ring-0 focus:ring-offset-0"
-                    />
-                    <span className="text-xs font-semibold text-slate-200">
-                      📦 เปิดขายแบบซอง (Single Pack)
-                    </span>
-                  </label>
-                </div>
-
-                <div className="space-y-2">
-                  {variants
-                    .filter((v) => allowSinglePack || v.type !== VariantType.SINGLE_PACK)
-                    .map((v) => (
-                      <div
-                        key={v.type}
-                        className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center p-3 rounded-xl bg-[#0b0f19] border border-slate-800 text-xs"
-                      >
-                        <div>
-                          <span className="text-[11px] text-slate-400 block mb-1">ชื่อตัวเลือก</span>
-                          <input
-                            type="text"
-                            value={v.name}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setVariants((prev) =>
-                                prev.map((item) =>
-                                  item.type === v.type ? { ...item, name: val } : item
-                                )
-                              );
-                            }}
-                            className="w-full bg-[#131b2e] border border-slate-700 focus:border-gold-400 rounded-lg px-2.5 py-1.5 font-semibold text-slate-100 focus:outline-none"
-                          />
-                        </div>
-
-                        <div>
-                          <span className="text-[11px] text-slate-400 block mb-1">ราคา (บาท)</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            placeholder="ระบุราคา..."
-                            value={v.price === 0 || v.price === "" ? "" : v.price}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setVariants((prev) =>
-                                prev.map((item) =>
-                                  item.type === v.type ? { ...item, price: val } : item
-                                )
-                              );
-                            }}
-                            className="w-full bg-[#131b2e] border border-slate-700 focus:border-gold-400 rounded-lg px-2.5 py-1.5 font-mono text-gold-300 font-bold focus:outline-none"
-                          />
-                        </div>
-
-                        <div>
-                          <span className="text-[11px] text-slate-400 block mb-1">ตัวคูณ Base Unit</span>
-                          <input
-                            type="number"
-                            min="1"
-                            value={v.multiplier}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 1;
-                              setVariants((prev) =>
-                                prev.map((item) =>
-                                  item.type === v.type ? { ...item, multiplier: val } : item
-                                )
-                              );
-                            }}
-                            className="w-full bg-[#131b2e] border border-slate-700 focus:border-gold-400 rounded-lg px-2.5 py-1.5 font-mono text-slate-200 focus:outline-none"
-                          />
-                        </div>
-
-                        <div className="text-right sm:self-end sm:pb-2">
-                          <span className="text-[10px] text-slate-400">
-                            เทียบเท่า {v.multiplier} {baseUnitName}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
                 </div>
               </div>
 

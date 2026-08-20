@@ -10,6 +10,8 @@ import {
   formatDateThai,
   getFranchiseBadgeStyle,
   getFranchiseLabel,
+  getRarityBadgeStyle,
+  getLanguageLabel,
   getVariantTypeLabel,
 } from "@/lib/utils";
 import { calculateAvailableStock, calculateHierarchyStocks } from "@/lib/stock-calculator";
@@ -29,6 +31,7 @@ import {
   ArrowRight,
   Info,
   Share2,
+  Award,
 } from "lucide-react";
 
 interface VariantItem {
@@ -54,6 +57,13 @@ interface ProductDetailClientProps {
     baseStock: number;
     packsPerBox: number;
     boxesPerCarton: number;
+    isSingleCard?: boolean;
+    cardNumber?: string | null;
+    rarity?: string | null;
+    cardLanguage?: string | null;
+    clanNation?: string | null;
+    cardType?: string | null;
+    foilType?: string | null;
     variants: VariantItem[];
   };
 }
@@ -249,14 +259,27 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           {/* Header Info */}
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center flex-wrap gap-2">
                 <span
                   className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}
                 >
                   {franchiseLabel}
                 </span>
+
+                {product.isSingleCard && product.rarity && (
+                  <span
+                    className={`px-2.5 py-0.5 rounded-md text-xs font-extrabold uppercase border ${
+                      getRarityBadgeStyle(product.rarity).bg
+                    } ${getRarityBadgeStyle(product.rarity).text} ${
+                      getRarityBadgeStyle(product.rarity).border
+                    } ${getRarityBadgeStyle(product.rarity).glow || ""}`}
+                  >
+                    {product.rarity}
+                  </span>
+                )}
+
                 <span className="px-2 py-1 rounded-md bg-slate-800 text-slate-300 font-mono text-xs border border-slate-700">
-                  {product.code}
+                  {product.cardNumber || product.code}
                 </span>
               </div>
 
@@ -274,6 +297,71 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               {product.name}
             </h1>
 
+            {/* Single Card Mint Condition & Authenticity Guarantee */}
+            {product.isSingleCard && (
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-transparent border border-amber-500/30 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-300 flex-shrink-0">
+                  <Award className="w-5 h-5 text-gold-400" />
+                </div>
+                <div className="text-xs space-y-0.5">
+                  <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                    <span>การ์ดแท้ 100% สภาพใหม่แกะซอง (Mint Condition)</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px]">
+                    คัดสภาพสวย ไร้รอยยับ/พับ พร้อมใส่ซองใส (Card Sleeve) ป้องกันให้ทุกใบ
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Single Card Specs Table */}
+            {product.isSingleCard && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
+                <div className="p-2.5 rounded-xl bg-[#0f1728] border border-slate-800/80">
+                  <span className="text-[10px] text-slate-400 block">รหัสการ์ด (Card No.)</span>
+                  <span className="text-xs font-mono font-bold text-slate-200">
+                    {product.cardNumber || "-"}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#0f1728] border border-slate-800/80">
+                  <span className="text-[10px] text-slate-400 block">ความหายาก (Rarity)</span>
+                  <span className="text-xs font-bold text-gold-300">
+                    {product.rarity || "-"}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#0f1728] border border-slate-800/80">
+                  <span className="text-[10px] text-slate-400 block">ภาษา (Language)</span>
+                  <span className="text-xs font-semibold text-slate-200">
+                    {getLanguageLabel(product.cardLanguage)}
+                  </span>
+                </div>
+                {product.clanNation && (
+                  <div className="p-2.5 rounded-xl bg-[#0f1728] border border-slate-800/80">
+                    <span className="text-[10px] text-slate-400 block">แคลน / เนชั่น</span>
+                    <span className="text-xs font-semibold text-slate-200">
+                      {product.clanNation}
+                    </span>
+                  </div>
+                )}
+                {product.cardType && (
+                  <div className="p-2.5 rounded-xl bg-[#0f1728] border border-slate-800/80">
+                    <span className="text-[10px] text-slate-400 block">ประเภทการ์ด</span>
+                    <span className="text-xs font-semibold text-slate-200">
+                      {product.cardType}
+                    </span>
+                  </div>
+                )}
+                {product.foilType && (
+                  <div className="p-2.5 rounded-xl bg-[#0f1728] border border-slate-800/80">
+                    <span className="text-[10px] text-slate-400 block">ชนิดฟอยล์ (Foil)</span>
+                    <span className="text-xs font-semibold text-purple-300">
+                      {product.foilType}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {product.isPreOrder && product.releaseDate && (
               <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0" />
@@ -284,78 +372,82 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             )}
           </div>
 
-          {/* Dynamic Variant Selector (ซอง / กล่อง / ลัง) */}
-          <div className="space-y-3 p-5 rounded-2xl bg-[#0f1728] border border-slate-800">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-gold-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Layers className="w-4 h-4" />
-                <span>เลือกรูปแบบบรรจุภัณฑ์ (Variant)</span>
-              </label>
-              <span className="text-[11px] text-slate-400">
-                คำนวณสต็อกอัตโนมัติ
-              </span>
-            </div>
+          {/* Dynamic Variant Selector (For Sealed Products or Multi-variants) */}
+          {!product.isSingleCard && product.variants.length > 1 && (
+            <div className="space-y-3 p-5 rounded-2xl bg-[#0f1728] border border-slate-800">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gold-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers className="w-4 h-4" />
+                  <span>เลือกรูปแบบบรรจุภัณฑ์ (Variant)</span>
+                </label>
+                <span className="text-[11px] text-slate-400">
+                  คำนวณสต็อกอัตโนมัติ
+                </span>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {product.variants.map((v) => {
-                const isSelected = v.id === selectedVariant?.id;
-                const vStock = calculateAvailableStock(product.baseStock, v.multiplier);
-                const isVOutOfStock = vStock <= 0;
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {product.variants.map((v) => {
+                  const isSelected = v.id === selectedVariant?.id;
+                  const vStock = calculateAvailableStock(product.baseStock, v.multiplier);
+                  const isVOutOfStock = vStock <= 0;
 
-                return (
-                  <button
-                    key={v.id}
-                    onClick={() => handleVariantChange(v.id)}
-                    className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
-                      isSelected
-                        ? "bg-gradient-to-b from-amber-500/20 to-yellow-500/10 border-gold-400 shadow-gold-glow"
-                        : "bg-[#131b2e] border-slate-800 hover:border-slate-700 opacity-90 hover:opacity-100"
-                    } ${isVOutOfStock ? "opacity-50" : ""}`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-200 line-clamp-1">
-                          {v.name}
-                        </span>
-                        {isSelected && (
-                          <span className="w-4 h-4 rounded-full bg-gold-500 text-slate-950 flex items-center justify-center flex-shrink-0">
-                            <Check className="w-3 h-3 stroke-[3]" />
+                  return (
+                    <button
+                      key={v.id}
+                      onClick={() => handleVariantChange(v.id)}
+                      className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
+                        isSelected
+                          ? "bg-gradient-to-b from-amber-500/20 to-yellow-500/10 border-gold-400 shadow-gold-glow"
+                          : "bg-[#131b2e] border-slate-800 hover:border-slate-700 opacity-90 hover:opacity-100"
+                      } ${isVOutOfStock ? "opacity-50" : ""}`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-200 line-clamp-1">
+                            {v.name}
                           </span>
-                        )}
+                          {isSelected && (
+                            <span className="w-4 h-4 rounded-full bg-gold-500 text-slate-950 flex items-center justify-center flex-shrink-0">
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-[11px] text-slate-400 mt-1">
+                          {v.multiplier > 1 ? `บรรจุ ${v.multiplier} ซอง` : "1 หน่วย"}
+                        </div>
                       </div>
 
-                      <div className="text-[11px] text-slate-400 mt-1">
-                        {v.multiplier > 1 ? `บรรจุ ${v.multiplier} ซอง` : "1 หน่วย"}
+                      <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center justify-between">
+                        <span className="text-xs font-bold text-gold-300">
+                          {formatCurrency(v.price)}
+                        </span>
+                        <span
+                          className={`text-[10px] font-mono ${
+                            isVOutOfStock ? "text-rose-400 font-semibold" : "text-emerald-400"
+                          }`}
+                        >
+                          {isVOutOfStock ? "หมด" : `เหลือ ${vStock}`}
+                        </span>
                       </div>
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center justify-between">
-                      <span className="text-xs font-bold text-gold-300">
-                        {formatCurrency(v.price)}
-                      </span>
-                      <span
-                        className={`text-[10px] font-mono ${
-                          isVOutOfStock ? "text-rose-400 font-semibold" : "text-emerald-400"
-                        }`}
-                      >
-                        {isVOutOfStock ? "หมด" : `เหลือ ${vStock}`}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Real-time Price & Stock Display for Selected Variant */}
+          {/* Real-time Price & Stock Display */}
           <div className="p-5 rounded-2xl bg-gradient-to-r from-[#141e33] to-[#0c1424] border border-gold-500/30 space-y-4">
             <div className="flex items-baseline justify-between">
               <div>
-                <span className="text-xs text-slate-400 block">ราคาสำหรับตัวเลือกนี้:</span>
+                <span className="text-xs text-slate-400 block">
+                  {product.isSingleCard ? "ราคาต่อใบ (Price per Card):" : "ราคาสำหรับตัวเลือกนี้:"}
+                </span>
                 <span className="text-3xl font-extrabold text-gold-300">
                   {formatCurrency(selectedVariant?.price || 0)}
                 </span>
-                {selectedVariant && selectedVariant.multiplier > 1 && (
+                {!product.isSingleCard && selectedVariant && selectedVariant.multiplier > 1 && (
                   <span className="text-xs text-slate-400 block mt-0.5">
                     (เฉลี่ยซองละ {formatCurrency((selectedVariant.price / selectedVariant.multiplier).toFixed(2))})
                   </span>
@@ -373,30 +465,32 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                   <span>
                     {isOutOfStock
                       ? "สินค้าหมดชั่วคราว"
-                      : `สั่งซื้อได้สูงสุด ${maxPurchasableForVariant} ชิ้น`}
+                      : `สต็อก ${maxPurchasableForVariant} ${product.isSingleCard ? "ใบ" : "ชิ้น"}`}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Packaging Ratio Explanation */}
-            <div className="p-3 rounded-xl bg-black/40 border border-slate-800 text-xs text-slate-300 space-y-1.5">
-              <div className="flex items-center gap-1.5 text-gold-300 font-semibold">
-                <Info className="w-3.5 h-3.5" />
-                <span>อัตราส่วนการบรรจุ & สต็อกรวมของรุ่นนี้:</span>
+            {/* Sealed Packaging Ratio Explanation */}
+            {!product.isSingleCard && (
+              <div className="p-3 rounded-xl bg-black/40 border border-slate-800 text-xs text-slate-300 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-gold-300 font-semibold">
+                  <Info className="w-3.5 h-3.5" />
+                  <span>อัตราส่วนการบรรจุ & สต็อกรวมของรุ่นนี้:</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-400 pt-1">
+                  <div>
+                    • 1 กล่อง = <strong>{product.packsPerBox} ซอง</strong>
+                  </div>
+                  <div>
+                    • 1 ลัง = <strong>{product.boxesPerCarton} กล่อง ({product.packsPerBox * product.boxesPerCarton} ซอง)</strong>
+                  </div>
+                  <div>
+                    • สต็อกรวม = <strong>{product.baseStock} {product.baseUnitName}</strong>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-400 pt-1">
-                <div>
-                  • 1 กล่อง = <strong>{product.packsPerBox} ซอง</strong>
-                </div>
-                <div>
-                  • 1 ลัง = <strong>{product.boxesPerCarton} กล่อง ({product.packsPerBox * product.boxesPerCarton} ซอง)</strong>
-                </div>
-                <div>
-                  • สต็อกรวม = <strong>{product.baseStock} {product.baseUnitName}</strong>
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* Quantity Stepper & Actions */}
             <div className="pt-2 space-y-3">

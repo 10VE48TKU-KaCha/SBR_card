@@ -129,9 +129,117 @@ export function getVariantTypeLabel(type: VariantType): string {
       return "กล่องพร้อมเล่น (Starter Deck)";
     case VariantType.SPECIAL_SET:
       return "ชุดพิเศษ (Special Set)";
+    case VariantType.SINGLE_CARD:
+      return "การ์ดแยกใบ (Single Card)";
     default:
       return "สินค้า";
   }
+}
+
+export function getLanguageLabel(lang?: string | null): string {
+  switch (lang) {
+    case "TH":
+      return "ภาษาไทย (TH)";
+    case "JP":
+      return "ภาษาญี่ปุ่น (JP)";
+    case "EN":
+      return "ภาษาอังกฤษ (EN)";
+    default:
+      return "ภาษาไทย (TH)";
+  }
+}
+
+export function getRarityBadgeStyle(rarity?: string | null): {
+  bg: string;
+  text: string;
+  border: string;
+  glow?: string;
+  isHighRarity: boolean;
+} {
+  if (!rarity) {
+    return {
+      bg: "bg-slate-800",
+      text: "text-slate-300",
+      border: "border-slate-700",
+      isHighRarity: false,
+    };
+  }
+
+  const r = rarity.toUpperCase().trim();
+
+  // Super High Rare / Signature / Master Rares (Gold / Rainbow shimmer)
+  if (
+    r === "DSR" ||
+    r === "FFR" ||
+    r === "SEC" ||
+    r === "SECRET" ||
+    r === "SECRET RARE" ||
+    r === "QCS" ||
+    r === "QUARTER CENTURY SECRET" ||
+    r === "STARLIGHT" ||
+    r === "STARLIGHT RARE" ||
+    r === "BUDDY RARE" ||
+    r === "ULTIMATE RARE" ||
+    r === "XX-RARE" ||
+    r === "XXR"
+  ) {
+    return {
+      bg: "bg-gradient-to-r from-amber-500/20 via-yellow-400/20 to-amber-600/20",
+      text: "text-amber-300 font-extrabold",
+      border: "border-amber-400/70",
+      glow: "shadow-[0_0_12px_rgba(251,191,36,0.35)]",
+      isHighRarity: true,
+    };
+  }
+
+  // High Rares (SP, RRR, X-Rare, Ultra Rare)
+  if (
+    r === "SP" ||
+    r === "RRR" ||
+    r === "X-RARE" ||
+    r === "XR" ||
+    r === "ULTRA RARE" ||
+    r === "UR" ||
+    r === "SUPER RARE" ||
+    r === "SR"
+  ) {
+    return {
+      bg: "bg-gradient-to-r from-purple-900/40 to-indigo-900/40",
+      text: "text-purple-300 font-bold",
+      border: "border-purple-500/60",
+      glow: "shadow-[0_0_8px_rgba(168,85,247,0.25)]",
+      isHighRarity: true,
+    };
+  }
+
+  // Medium Rares (RR, R, M-Rare)
+  if (r === "RR" || r === "R" || r === "M-RARE" || r === "MR" || r === "RARE") {
+    return {
+      bg: "bg-blue-950/60",
+      text: "text-blue-300 font-semibold",
+      border: "border-blue-500/50",
+      isHighRarity: false,
+    };
+  }
+
+  // Promo / Special (PR, PROMO)
+  if (r === "PR" || r === "PROMO") {
+    return {
+      bg: "bg-emerald-950/60",
+      text: "text-emerald-300 font-bold",
+      border: "border-emerald-500/50",
+      glow: "shadow-[0_0_8px_rgba(16,185,129,0.25)]",
+      isHighRarity: true,
+    };
+  }
+
+  // Common / Standard
+  return {
+    bg: "bg-slate-800/80",
+    text: "text-slate-300 font-medium",
+    border: "border-slate-700",
+    isHighRarity: false,
+  };
 }
 
 export function getOrderStatusInfo(status: OrderStatus): {

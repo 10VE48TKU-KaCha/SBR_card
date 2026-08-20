@@ -7,9 +7,11 @@ import {
   formatDateShort,
   getFranchiseBadgeStyle,
   getFranchiseLabel,
+  getRarityBadgeStyle,
+  getLanguageLabel,
 } from "@/lib/utils";
 import { calculateHierarchyStocks } from "@/lib/stock-calculator";
-import { Package, Layers, Sparkles, Clock, CheckCircle2 } from "lucide-react";
+import { Package, Layers, Sparkles, Clock, CheckCircle2, ShieldCheck } from "lucide-react";
 
 export interface ProductCardProps {
   product: {
@@ -25,6 +27,13 @@ export interface ProductCardProps {
     baseStock: number;
     packsPerBox: number;
     boxesPerCarton: number;
+    isSingleCard?: boolean;
+    cardNumber?: string | null;
+    rarity?: string | null;
+    cardLanguage?: string | null;
+    clanNation?: string | null;
+    cardType?: string | null;
+    foilType?: string | null;
     variants: {
       id: string;
       type: VariantType;
@@ -42,6 +51,9 @@ export function ProductCard({ product }: ProductCardProps) {
   const prices = product.variants.map((v) => Number(v.price));
   const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
   const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+
+  const isSingle = Boolean(product.isSingleCard);
+  const rarityStyle = isSingle && product.rarity ? getRarityBadgeStyle(product.rarity) : null;
 
   const { cartonStock, boxStock, packStock } = calculateHierarchyStocks({
     baseStock: product.baseStock,
@@ -75,7 +87,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0c1220] via-transparent to-transparent opacity-80" />
 
-        {/* Shop Logo Watermark Badge (Simulated in UI preview) */}
+        {/* Shop Logo Watermark Badge */}
         <div className="absolute bottom-2.5 right-2.5 opacity-60 group-hover:opacity-90 transition-opacity bg-black/40 backdrop-blur-sm rounded-full p-1 border border-gold-500/30">
           <div className="relative w-7 h-7 rounded-full overflow-hidden">
             <Image
@@ -113,10 +125,17 @@ export function ProductCard({ product }: ProductCardProps) {
           </span>
         </div>
 
-        {/* Product Code Badge */}
-        <div className="absolute top-2.5 right-2.5">
-          <span className="px-2 py-0.5 rounded bg-black/70 text-slate-300 text-[10px] font-mono border border-slate-700">
-            {product.code}
+        {/* Product Code / Card Number Badge */}
+        <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1">
+          {isSingle && product.rarity && rarityStyle && (
+            <span
+              className={`px-2.5 py-0.5 rounded-md text-[11px] font-extrabold uppercase border ${rarityStyle.bg} ${rarityStyle.text} ${rarityStyle.border} ${rarityStyle.glow || ""}`}
+            >
+              {product.rarity}
+            </span>
+          )}
+          <span className="px-2 py-0.5 rounded bg-black/75 text-slate-300 text-[10px] font-mono border border-slate-700">
+            {product.cardNumber || product.code}
           </span>
         </div>
       </Link>
@@ -124,13 +143,25 @@ export function ProductCard({ product }: ProductCardProps) {
       {/* Content Container */}
       <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
         <div>
-          {/* Release Date if Pre-Order */}
-          {product.isPreOrder && product.releaseDate && (
+          {/* Single Card Mint Guarantee & Attributes */}
+          {isSingle ? (
+            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+              <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] font-semibold flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-gold-400" />
+                <span>ของแท้ สภาพใหม่ 100%</span>
+              </span>
+              {product.clanNation && (
+                <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">
+                  {product.clanNation}
+                </span>
+              )}
+            </div>
+          ) : product.isPreOrder && product.releaseDate ? (
             <div className="text-[11px] text-amber-400/90 font-medium mb-1 flex items-center gap-1">
               <Sparkles className="w-3 h-3" />
               <span>กำหนดวางจำหน่าย: {formatDateShort(product.releaseDate)}</span>
             </div>
-          )}
+          ) : null}
 
           {/* Product Title */}
           <Link
@@ -141,22 +172,29 @@ export function ProductCard({ product }: ProductCardProps) {
           </Link>
         </div>
 
-        {/* Hierarchical Linked Stock Breakdown */}
+        {/* Stock Breakdown */}
         <div className="bg-[#090d16]/80 p-2.5 rounded-xl border border-slate-800/80 space-y-1">
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-slate-400 flex items-center gap-1">
               <Package className="w-3 h-3 text-gold-400" /> สต็อกคงเหลือ:
             </span>
             <span className="font-mono font-medium text-slate-200">
-              {product.baseStock} {product.baseUnitName}
+              {product.baseStock} {isSingle ? "ใบ" : product.baseUnitName}
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/50">
-            <span>ลัง: <strong className="text-slate-300">{cartonStock}</strong></span>
-            <span>กล่อง: <strong className="text-slate-300">{boxStock}</strong></span>
-            <span>{product.baseUnitName}: <strong className="text-slate-300">{packStock}</strong></span>
-          </div>
+          {!isSingle ? (
+            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/50">
+              <span>ลัง: <strong className="text-slate-300">{cartonStock}</strong></span>
+              <span>กล่อง: <strong className="text-slate-300">{boxStock}</strong></span>
+              <span>{product.baseUnitName}: <strong className="text-slate-300">{packStock}</strong></span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/50">
+              <span>ภาษา: <strong className="text-slate-300">{getLanguageLabel(product.cardLanguage)}</strong></span>
+              <span>สถานะ: <strong className="text-emerald-400">พร้อมส่งทันที</strong></span>
+            </div>
+          )}
         </div>
 
         {/* Price & Action */}
@@ -174,7 +212,7 @@ export function ProductCard({ product }: ProductCardProps) {
             href={`/products/${product.code}`}
             className="px-3 py-1.5 rounded-lg bg-gold-500/10 hover:bg-gold-500 text-gold-300 hover:text-slate-950 border border-gold-500/40 text-xs font-semibold transition-all flex items-center gap-1"
           >
-            <span>เลือกขนาด</span>
+            <span>{isSingle ? "ดูรายละเอียด" : "เลือกขนาด"}</span>
           </Link>
         </div>
       </div>

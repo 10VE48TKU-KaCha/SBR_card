@@ -27,6 +27,13 @@ enum VariantType {
   CARTON_CASE
   STARTER_DECK
   SPECIAL_SET
+  SINGLE_CARD
+}
+
+enum CardLanguage {
+  TH
+  JP
+  EN
 }
 
 enum OrderStatus {
@@ -58,25 +65,38 @@ model User {
 }
 
 model Product {
-  id            String          @id @default(cuid())
-  code          String          @unique
-  name          String
-  description   String?         @db.Text
-  franchise     GameFranchise
-  images        String[]
-  isPreOrder    Boolean         @default(false)
-  releaseDate   DateTime?
-  baseUnitName  String          @default("ซอง")
-  baseStock     Int             @default(0)
-  packsPerBox   Int             @default(16)
-  boxesPerCarton Int            @default(16)
-  isActive      Boolean         @default(true)
-  variants      ProductVariant[]
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  description    String?         @db.Text
+  franchise      GameFranchise
+  images         String[]
+  isPreOrder     Boolean         @default(false)
+  releaseDate    DateTime?
+  baseUnitName   String          @default("ซอง")
+  baseStock      Int             @default(0)
+  packsPerBox    Int             @default(16)
+  boxesPerCarton Int             @default(16)
+  isActive       Boolean         @default(true)
+
+  // Single Card Specific Fields
+  isSingleCard   Boolean         @default(false)
+  cardNumber     String?
+  rarity         String?
+  cardLanguage   CardLanguage?   @default(TH)
+  clanNation     String?
+  cardType       String?
+  foilType       String?
+
+  variants       ProductVariant[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@index([franchise])
   @@index([code])
+  @@index([isSingleCard])
+  @@index([rarity])
+  @@index([cardNumber])
 }
 
 model ProductVariant {

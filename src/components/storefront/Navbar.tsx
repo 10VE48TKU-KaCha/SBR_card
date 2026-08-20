@@ -74,6 +74,7 @@ export function Navbar() {
 
   const navLinks = [
     { label: "สินค้าทั้งหมด", href: "/products" },
+    { label: "🃏 การ์ดแยกใบ (Singles)", href: "/products?category=single" },
     { label: "Cardfight!! Vanguard", href: "/products?franchise=VANGUARD" },
     { label: "Buddyfight", href: "/products?franchise=BUDDYFIGHT" },
     { label: "Yu-Gi-Oh!", href: "/products?franchise=YUGIOH" },

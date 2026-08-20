@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { FulfillmentType, GameFranchise, OrderStatus, VariantType } from "@prisma/client";
+import { CardLanguage, FulfillmentType, GameFranchise, OrderStatus, VariantType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -431,6 +431,13 @@ export async function saveProductAction(productData: {
   packsPerBox: number;
   boxesPerCarton: number;
   baseStock: number;
+  isSingleCard?: boolean;
+  cardNumber?: string | null;
+  rarity?: string | null;
+  cardLanguage?: CardLanguage | null;
+  clanNation?: string | null;
+  cardType?: string | null;
+  foilType?: string | null;
   variants: {
     id?: string;
     type: VariantType;
@@ -442,6 +449,8 @@ export async function saveProductAction(productData: {
 }) {
   try {
     const releaseDate = productData.releaseDate ? new Date(productData.releaseDate) : null;
+    const isSingleCard = Boolean(productData.isSingleCard);
+    const baseUnitName = isSingleCard ? "ใบ" : (productData.baseUnitName || "ซอง");
 
     if (productData.id) {
       // Update product
@@ -456,14 +465,21 @@ export async function saveProductAction(productData: {
             images: productData.images,
             isPreOrder: productData.isPreOrder,
             releaseDate,
-            baseUnitName: productData.baseUnitName || "ซอง",
-            packsPerBox: productData.packsPerBox,
-            boxesPerCarton: productData.boxesPerCarton,
+            baseUnitName,
+            packsPerBox: isSingleCard ? 1 : productData.packsPerBox,
+            boxesPerCarton: isSingleCard ? 1 : productData.boxesPerCarton,
             baseStock: productData.baseStock,
+            isSingleCard,
+            cardNumber: productData.cardNumber?.trim() || null,
+            rarity: productData.rarity?.trim() || null,
+            cardLanguage: productData.cardLanguage || CardLanguage.TH,
+            clanNation: productData.clanNation?.trim() || null,
+            cardType: productData.cardType?.trim() || null,
+            foilType: productData.foilType?.trim() || null,
           },
         });
 
-        // Delete variants that are no longer in productData.variants (e.g. SINGLE_PACK disabled)
+        // Delete variants that are no longer in productData.variants
         const activeTypes = productData.variants.map((v) => v.type);
         await tx.productVariant.deleteMany({
           where: {
@@ -509,10 +525,17 @@ export async function saveProductAction(productData: {
           images: productData.images,
           isPreOrder: productData.isPreOrder,
           releaseDate,
-          baseUnitName: productData.baseUnitName || "ซอง",
-          packsPerBox: productData.packsPerBox,
-          boxesPerCarton: productData.boxesPerCarton,
+          baseUnitName,
+          packsPerBox: isSingleCard ? 1 : productData.packsPerBox,
+          boxesPerCarton: isSingleCard ? 1 : productData.boxesPerCarton,
           baseStock: productData.baseStock,
+          isSingleCard,
+          cardNumber: productData.cardNumber?.trim() || null,
+          rarity: productData.rarity?.trim() || null,
+          cardLanguage: productData.cardLanguage || CardLanguage.TH,
+          clanNation: productData.clanNation?.trim() || null,
+          cardType: productData.cardType?.trim() || null,
+          foilType: productData.foilType?.trim() || null,
           variants: {
             create: productData.variants.map((v) => ({
               type: v.type,

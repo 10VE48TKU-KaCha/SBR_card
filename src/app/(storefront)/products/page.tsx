@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
-import { GameFranchise, VariantType } from "@prisma/client";
+import { CardLanguage, GameFranchise, VariantType } from "@prisma/client";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import {
   Filter,
@@ -10,8 +10,10 @@ import {
   Flame,
   Package,
   Layers,
+  Sparkles,
   ArrowUpDown,
   X,
+  ShieldCheck,
 } from "lucide-react";
 
 interface ProductsPageProps {
@@ -20,6 +22,9 @@ interface ProductsPageProps {
     franchise?: string;
     preOrder?: string;
     type?: string;
+    category?: string; // "all" | "sealed" | "single"
+    rarity?: string;
+    lang?: string;
     sort?: string;
   }>;
 }
@@ -33,6 +38,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const selectedFranchise = resolvedParams.franchise as GameFranchise | undefined;
   const isPreOrderFilter = resolvedParams.preOrder === "true";
   const selectedVariantType = resolvedParams.type as VariantType | undefined;
+  const categoryFilter = resolvedParams.category || "all"; // "all", "sealed", "single"
+  const selectedRarity = resolvedParams.rarity || "";
+  const selectedLang = resolvedParams.lang as CardLanguage | undefined;
   const sort = resolvedParams.sort || "newest";
 
   // Build Prisma query filters
@@ -40,10 +48,19 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     isActive: true,
   };
 
+  if (categoryFilter === "single") {
+    where.isSingleCard = true;
+  } else if (categoryFilter === "sealed") {
+    where.isSingleCard = false;
+  }
+
   if (query) {
     where.OR = [
       { name: { contains: query, mode: "insensitive" } },
       { code: { contains: query, mode: "insensitive" } },
+      { cardNumber: { contains: query, mode: "insensitive" } },
+      { rarity: { contains: query, mode: "insensitive" } },
+      { clanNation: { contains: query, mode: "insensitive" } },
       { description: { contains: query, mode: "insensitive" } },
     ];
   }
@@ -62,6 +79,14 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         type: selectedVariantType,
       },
     };
+  }
+
+  if (selectedRarity) {
+    where.rarity = { equals: selectedRarity, mode: "insensitive" };
+  }
+
+  if (selectedLang && Object.values(CardLanguage).includes(selectedLang)) {
+    where.cardLanguage = selectedLang;
   }
 
   // Sorting
@@ -99,11 +124,38 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     { value: VariantType.STARTER_DECK, label: "กล่องพร้อมเล่น (Starter Deck)" },
   ];
 
+  const popularRarities = ["DSR", "FFR", "SP", "SEC", "RRR", "RR", "R", "QCS", "Secret"];
+
   const hasActiveFilters =
     Boolean(query) ||
     Boolean(selectedFranchise) ||
     isPreOrderFilter ||
-    Boolean(selectedVariantType);
+    Boolean(selectedVariantType) ||
+    categoryFilter !== "all" ||
+    Boolean(selectedRarity) ||
+    Boolean(selectedLang);
+
+  // Helper to construct query params
+  const makeFilterUrl = (overrides: Record<string, string | null | undefined>) => {
+    const params = new URLSearchParams();
+    const merged = {
+      ...(query && { q: query }),
+      ...(selectedFranchise && { franchise: selectedFranchise }),
+      ...(isPreOrderFilter && { preOrder: "true" }),
+      ...(selectedVariantType && { type: selectedVariantType }),
+      ...(categoryFilter !== "all" && { category: categoryFilter }),
+      ...(selectedRarity && { rarity: selectedRarity }),
+      ...(selectedLang && { lang: selectedLang }),
+      ...overrides,
+    };
+
+    for (const [k, v] of Object.entries(merged)) {
+      if (v) params.set(k, v);
+    }
+
+    const qs = params.toString();
+    return qs ? `/products?${qs}` : "/products";
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -115,11 +167,26 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               หน้าแรก
             </Link>
             <span>/</span>
-            <span className="text-slate-200">แคตตาล็อกสินค้า</span>
+            <span className="text-slate-200">
+              {categoryFilter === "single"
+                ? "การ์ดแยกใบ (Single Cards)"
+                : categoryFilter === "sealed"
+                ? "สินค้าซีลด์ (Sealed Products)"
+                : "แคตตาล็อกสินค้า"}
+            </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-2.5">
-            <Layers className="w-6 h-6 text-gold-400" />
-            <span>สินค้าทั้งหมด ({products.length} รายการ)</span>
+            {categoryFilter === "single" ? (
+              <>
+                <span className="text-2xl">🃏</span>
+                <span>การ์ดแยกใบ (Single Cards) ({products.length} รายการ)</span>
+              </>
+            ) : (
+              <>
+                <Layers className="w-6 h-6 text-gold-400" />
+                <span>สินค้าทั้งหมด ({products.length} รายการ)</span>
+              </>
+            )}
           </h1>
         </div>
 
@@ -130,14 +197,16 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               type="text"
               name="q"
               defaultValue={query}
-              placeholder="ค้นหาชื่อการ์ด หรือ รหัสสินค้า..."
+              placeholder="ค้นหาชื่อการ์ด, รหัสการ์ด, เนชั่น, Rarity..."
               className="w-full bg-[#12192b] border border-slate-700/80 rounded-xl py-2.5 pl-10 pr-4 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-gold-400"
             />
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           </div>
           {selectedFranchise && <input type="hidden" name="franchise" value={selectedFranchise} />}
           {isPreOrderFilter && <input type="hidden" name="preOrder" value="true" />}
-          {selectedVariantType && <input type="hidden" name="type" value={selectedVariantType} />}
+          {categoryFilter !== "all" && <input type="hidden" name="category" value={categoryFilter} />}
+          {selectedRarity && <input type="hidden" name="rarity" value={selectedRarity} />}
+          {selectedLang && <input type="hidden" name="lang" value={selectedLang} />}
           <button
             type="submit"
             className="px-4 py-2.5 bg-gold-500 hover:bg-gold-400 text-slate-950 font-bold text-xs rounded-xl transition-colors shadow-sm"
@@ -145,6 +214,45 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             ค้นหา
           </button>
         </form>
+      </div>
+
+      {/* Category Tab Selector (All | Sealed | Single Cards) */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#0e1628] rounded-2xl border border-slate-800 w-fit">
+        <Link
+          href={makeFilterUrl({ category: null })}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            categoryFilter === "all"
+              ? "bg-gold-500 text-slate-950 shadow-gold-glow"
+              : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>ทั้งหมด (All Products)</span>
+        </Link>
+
+        <Link
+          href={makeFilterUrl({ category: "single", type: null })}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            categoryFilter === "single"
+              ? "bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-gold-glow"
+              : "text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 border border-amber-500/30"
+          }`}
+        >
+          <span>🃏</span>
+          <span>การ์ดแยกใบ (Single Cards)</span>
+        </Link>
+
+        <Link
+          href={makeFilterUrl({ category: "sealed", rarity: null, lang: null })}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            categoryFilter === "sealed"
+              ? "bg-gold-500 text-slate-950 shadow-gold-glow"
+              : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span>กล่อง & ซอง (Sealed)</span>
+        </Link>
       </div>
 
       {/* Main Layout Grid */}
@@ -175,16 +283,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             <div className="space-y-1">
               {franchiseList.map((f) => {
                 const isActive = (selectedFranchise || "") === f.value;
-                const params = new URLSearchParams();
-                if (query) params.set("q", query);
-                if (f.value) params.set("franchise", f.value);
-                if (isPreOrderFilter) params.set("preOrder", "true");
-                if (selectedVariantType) params.set("type", selectedVariantType);
-
                 return (
                   <Link
                     key={f.value}
-                    href={`/products?${params.toString()}`}
+                    href={makeFilterUrl({ franchise: f.value || null })}
                     className={`block px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                       isActive
                         ? "bg-gold-500 text-slate-950 font-bold shadow-md"
@@ -198,78 +300,137 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             </div>
           </div>
 
-          {/* Pre-Order Toggle */}
-          <div className="pt-3 border-t border-slate-800 space-y-2">
-            <label className="text-xs font-semibold text-gold-300 block uppercase tracking-wider">
-              สถานะสินค้า
-            </label>
-            <div className="flex flex-col gap-1">
-              <Link
-                href={`/products?${new URLSearchParams({
-                  ...(query && { q: query }),
-                  ...(selectedFranchise && { franchise: selectedFranchise }),
-                  ...(selectedVariantType && { type: selectedVariantType }),
-                }).toString()}`}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  !isPreOrderFilter
-                    ? "bg-slate-800 text-white font-semibold"
-                    : "text-slate-300 hover:bg-slate-800/40"
-                }`}
-              >
-                สินค้าทั้งหมด (พร้อมส่ง & สั่งจอง)
-              </Link>
+          {/* Single Card Specific Filters (Rarity & Language) */}
+          {categoryFilter === "single" && (
+            <>
+              {/* Rarity Filter */}
+              <div className="pt-3 border-t border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gold-300 block uppercase tracking-wider">
+                    ระดับความหายาก (Rarity)
+                  </label>
+                  {selectedRarity && (
+                    <Link
+                      href={makeFilterUrl({ rarity: null })}
+                      className="text-[10px] text-slate-400 hover:text-slate-200"
+                    >
+                      ทั้งหมด
+                    </Link>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {popularRarities.map((r) => {
+                    const isActive = selectedRarity.toUpperCase() === r.toUpperCase();
+                    return (
+                      <Link
+                        key={r}
+                        href={makeFilterUrl({ rarity: isActive ? null : r })}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all border ${
+                          isActive
+                            ? "bg-amber-500 text-slate-950 border-amber-400 shadow-sm"
+                            : "bg-slate-800/80 text-slate-300 border-slate-700 hover:border-gold-500/50 hover:text-gold-300"
+                        }`}
+                      >
+                        {r}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
 
-              <Link
-                href={`/products?${new URLSearchParams({
-                  ...(query && { q: query }),
-                  ...(selectedFranchise && { franchise: selectedFranchise }),
-                  preOrder: "true",
-                  ...(selectedVariantType && { type: selectedVariantType }),
-                }).toString()}`}
-                className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between transition-all ${
-                  isPreOrderFilter
-                    ? "bg-rose-600 text-white font-bold"
-                    : "text-rose-400 hover:bg-rose-950/40 border border-rose-500/20"
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <Flame className="w-3.5 h-3.5" />
-                  <span>สินค้าพรีออเดอร์เท่านั้น</span>
-                </span>
-              </Link>
+              {/* Language Filter */}
+              <div className="pt-3 border-t border-slate-800 space-y-2">
+                <label className="text-xs font-semibold text-gold-300 block uppercase tracking-wider">
+                  ภาษาการ์ด (Language)
+                </label>
+                <div className="space-y-1">
+                  {[
+                    { val: "", label: "ทุกภาษา" },
+                    { val: "TH", label: "ภาษาไทย (TH)" },
+                    { val: "JP", label: "ภาษาญี่ปุ่น (JP)" },
+                    { val: "EN", label: "ภาษาอังกฤษ (EN)" },
+                  ].map((l) => {
+                    const isActive = (selectedLang || "") === l.val;
+                    return (
+                      <Link
+                        key={l.val}
+                        href={makeFilterUrl({ lang: l.val || null })}
+                        className={`block px-3 py-1.5 rounded-lg text-xs transition-all ${
+                          isActive
+                            ? "bg-slate-700 text-white font-bold"
+                            : "text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
+                        }`}
+                      >
+                        {l.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Pre-Order Toggle (Sealed only) */}
+          {categoryFilter !== "single" && (
+            <div className="pt-3 border-t border-slate-800 space-y-2">
+              <label className="text-xs font-semibold text-gold-300 block uppercase tracking-wider">
+                สถานะสินค้า
+              </label>
+              <div className="flex flex-col gap-1">
+                <Link
+                  href={makeFilterUrl({ preOrder: null })}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    !isPreOrderFilter
+                      ? "bg-slate-800 text-white font-semibold"
+                      : "text-slate-300 hover:bg-slate-800/40"
+                  }`}
+                >
+                  สินค้าทั้งหมด (พร้อมส่ง & สั่งจอง)
+                </Link>
+
+                <Link
+                  href={makeFilterUrl({ preOrder: "true" })}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between transition-all ${
+                    isPreOrderFilter
+                      ? "bg-rose-600 text-white font-bold"
+                      : "text-rose-400 hover:bg-rose-950/40 border border-rose-500/20"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5" />
+                    <span>สินค้าพรีออเดอร์เท่านั้น</span>
+                  </span>
+                </Link>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Variant Type Filter */}
-          <div className="pt-3 border-t border-slate-800 space-y-2">
-            <label className="text-xs font-semibold text-gold-300 block uppercase tracking-wider">
-              ประเภทการบรรจุ
-            </label>
-            <div className="space-y-1">
-              {variantTypeList.map((v) => {
-                const isActive = (selectedVariantType || "") === v.value;
-                const params = new URLSearchParams();
-                if (query) params.set("q", query);
-                if (selectedFranchise) params.set("franchise", selectedFranchise);
-                if (isPreOrderFilter) params.set("preOrder", "true");
-                if (v.value) params.set("type", v.value);
-
-                return (
-                  <Link
-                    key={v.value}
-                    href={`/products?${params.toString()}`}
-                    className={`block px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                      isActive
-                        ? "bg-slate-700 text-white font-semibold"
-                        : "text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
-                    }`}
-                  >
-                    {v.label}
-                  </Link>
-                );
-              })}
+          {/* Packaging Type Filter (Sealed only) */}
+          {categoryFilter !== "single" && (
+            <div className="pt-3 border-t border-slate-800 space-y-2">
+              <label className="text-xs font-semibold text-gold-300 block uppercase tracking-wider">
+                ประเภทการบรรจุ
+              </label>
+              <div className="space-y-1">
+                {variantTypeList.map((v) => {
+                  const isActive = (selectedVariantType || "") === v.value;
+                  return (
+                    <Link
+                      key={v.value}
+                      href={makeFilterUrl({ type: v.value || null })}
+                      className={`block px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        isActive
+                          ? "bg-slate-700 text-white font-semibold"
+                          : "text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
+                      }`}
+                    >
+                      {v.label}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </aside>
 
         {/* Right Product Grid */}
@@ -278,6 +439,16 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           {hasActiveFilters && (
             <div className="flex items-center gap-2 flex-wrap text-xs bg-[#0f1728] p-3 rounded-xl border border-slate-800">
               <span className="text-slate-400">กำลังกรอง:</span>
+              {categoryFilter === "single" && (
+                <span className="px-2.5 py-1 rounded-full bg-amber-950 text-amber-300 border border-amber-700 flex items-center gap-1">
+                  <span>🃏 การ์ดแยกใบ (Single Cards)</span>
+                </span>
+              )}
+              {categoryFilter === "sealed" && (
+                <span className="px-2.5 py-1 rounded-full bg-blue-950 text-blue-300 border border-blue-700">
+                  กล่อง & ซอง (Sealed)
+                </span>
+              )}
               {query && (
                 <span className="px-2.5 py-1 rounded-full bg-slate-800 text-gold-300 border border-slate-700">
                   คำค้น: "{query}"
@@ -286,6 +457,16 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               {selectedFranchise && (
                 <span className="px-2.5 py-1 rounded-full bg-blue-950 text-blue-300 border border-blue-800">
                   แฟรนไชส์: {selectedFranchise}
+                </span>
+              )}
+              {selectedRarity && (
+                <span className="px-2.5 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-800">
+                  Rarity: {selectedRarity}
+                </span>
+              )}
+              {selectedLang && (
+                <span className="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800">
+                  ภาษา: {selectedLang}
                 </span>
               )}
               {isPreOrderFilter && (
@@ -309,11 +490,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               </div>
               <h3 className="text-lg font-bold text-slate-200">ไม่พบสินค้าที่ตรงกับเงื่อนไข</h3>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                ลองค้นหาด้วยคำค้นอื่น หรือล้างตัวกรองเพื่อดูสินค้าทั้งหมดที่มีอยู่ในร้านสุภาพบุรุษ
+                ลองค้นหาด้วยรหัสการ์ด, ชื่อการ์ด, หรือล้างตัวกรองเพื่อดูสินค้าทั้งหมดที่มีอยู่ในร้านสุภาพบุรุษ
               </p>
               <Link
                 href="/products"
-                className="inline-block px-5 py-2.5 bg-gold-500 hover:bg-gold-400 text-slate-950 font-bold text-xs rounded-xl transition-colors"
+                className="inline-block px-5 py-2.5 bg-gold-500 hover:bg-gold-400 text-slate-950 font-bold text-xs rounded-xl transition-colors shadow-sm"
               >
                 ล้างตัวกรองทั้งหมด
               </Link>

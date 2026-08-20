@@ -359,7 +359,227 @@ async function main() {
     },
   });
 
-  console.log("🎴 Created 8 TCG products with full variants and packaging ratios");
+  // ==========================================
+  // 3.1 Single Cards (การ์ดแยกใบแท้ 100% สภาพใหม่)
+  // ==========================================
+
+  // Single 1: Lianorn Vivace (DSR) - Vanguard TH
+  await prisma.product.create({
+    data: {
+      code: "VG-DZ-BT02-DSR01",
+      name: "ลิอาเนิร์น วิวาเช่ (Lianorn Vivace) [DSR]",
+      description: "การ์ดระดับสูงสุด Dress Secret Rare (DSR) สภาพแกะซองสดใหม่ 100% สวยกริบไร้รอย พร้อมส่งพร้อม Toploader แข็งและซอง Perfect Fit",
+      franchise: GameFranchise.VANGUARD,
+      images: [
+        "https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80",
+      ],
+      isPreOrder: false,
+      isSingleCard: true,
+      cardNumber: "DZ-BT02/DSR01TH",
+      rarity: "DSR",
+      cardLanguage: "TH",
+      clanNation: "Stoicheia",
+      cardType: "Normal Unit / Grade 3",
+      foilType: "Rainbow Hologram + Gold Stamp",
+      baseUnitName: "ใบ",
+      packsPerBox: 1,
+      boxesPerCarton: 1,
+      baseStock: 2,
+      variants: {
+        create: [
+          {
+            type: VariantType.SINGLE_CARD,
+            name: "การ์ด ลิอาเนิร์น วิวาเช่ [DSR] 1 ใบ",
+            sku: "VG-DZ-BT02-DSR01-CARD",
+            price: 2800.0,
+            multiplier: 1,
+          },
+        ],
+      },
+    },
+  });
+
+  // Single 2: Blaster Blade (FFR) - Vanguard TH
+  await prisma.product.create({
+    data: {
+      code: "VG-DZ-BT02-FFR01",
+      name: "บลาสเตอร์ เบลด (Blaster Blade) [FFR]",
+      description: "Full Frame Rare (FFR) ฟอยล์เต็มใบไร้กรอบ สภาพ Mint 100% ใส่สลีฟและ Toploader แน่นหนา",
+      franchise: GameFranchise.VANGUARD,
+      images: [
+        "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
+      ],
+      isPreOrder: false,
+      isSingleCard: true,
+      cardNumber: "DZ-BT02/FFR01TH",
+      rarity: "FFR",
+      cardLanguage: "TH",
+      clanNation: "Keter Sanctuary",
+      cardType: "Normal Unit / Grade 2",
+      foilType: "Full Frame Foil Emboss",
+      baseUnitName: "ใบ",
+      packsPerBox: 1,
+      boxesPerCarton: 1,
+      baseStock: 4,
+      variants: {
+        create: [
+          {
+            type: VariantType.SINGLE_CARD,
+            name: "การ์ด บลาสเตอร์ เบลด [FFR] 1 ใบ",
+            sku: "VG-DZ-BT02-FFR01-CARD",
+            price: 1450.0,
+            multiplier: 1,
+          },
+        ],
+      },
+    },
+  });
+
+  // Single 3: Blue-Eyes White Dragon (Quarter Century Secret) - Yu-Gi-Oh! JP
+  await prisma.product.create({
+    data: {
+      code: "YG-RC04-QCS01",
+      name: "Blue-Eyes White Dragon (มังกรฟ้าตาขาว) [QCS]",
+      description: "ฉลองครบรอบ 25 ปี ยูกิโอ ระดับ Quarter Century Secret Rare ฟอยล์ประกายสะท้อนแสงโลโก้ 25th สภาพสวยกริบ 100%",
+      franchise: GameFranchise.YUGIOH,
+      images: [
+        "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=800&q=80",
+      ],
+      isPreOrder: false,
+      isSingleCard: true,
+      cardNumber: "RC04-JP001",
+      rarity: "Quarter Century Secret",
+      cardLanguage: "JP",
+      clanNation: "Dragon / LIGHT",
+      cardType: "Normal Monster / Level 8",
+      foilType: "25th Anniversary Prismatic Secret",
+      baseUnitName: "ใบ",
+      packsPerBox: 1,
+      boxesPerCarton: 1,
+      baseStock: 2,
+      variants: {
+        create: [
+          {
+            type: VariantType.SINGLE_CARD,
+            name: "การ์ด Blue-Eyes White Dragon [QCS] 1 ใบ",
+            sku: "YG-RC04-QCS01-CARD",
+            price: 4900.0,
+            multiplier: 1,
+          },
+        ],
+      },
+    },
+  });
+
+  // Single 4: Ash Blossom & Joyous Spring (Secret Rare) - Yu-Gi-Oh! EN
+  await prisma.product.create({
+    data: {
+      code: "YG-RA01-SCR01",
+      name: "Ash Blossom & Joyous Spring [Secret Rare]",
+      description: "แฮนด์แทร็ปยอดนิยมสารพัดประโยชน์ ระดับ Secret Rare ภาษาอังกฤษ สภาพใหม่ 100%",
+      franchise: GameFranchise.YUGIOH,
+      images: [
+        "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80",
+      ],
+      isPreOrder: false,
+      isSingleCard: true,
+      cardNumber: "RA01-EN008",
+      rarity: "Secret Rare",
+      cardLanguage: "EN",
+      clanNation: "Zombie / FIRE",
+      cardType: "Tuner / Effect Monster",
+      foilType: "Secret Rare Rainbow Foil",
+      baseUnitName: "ใบ",
+      packsPerBox: 1,
+      boxesPerCarton: 1,
+      baseStock: 8,
+      variants: {
+        create: [
+          {
+            type: VariantType.SINGLE_CARD,
+            name: "การ์ด Ash Blossom [Secret Rare] 1 ใบ",
+            sku: "YG-RA01-SCR01-CARD",
+            price: 650.0,
+            multiplier: 1,
+          },
+        ],
+      },
+    },
+  });
+
+  // Single 5: Jackknife "Gold Ritter" (Buddy Rare) - Buddyfight TH
+  await prisma.product.create({
+    data: {
+      code: "BF-S-UB03-BR01",
+      name: "แจ็คไนฟ์ \"โกลด์ ริตเตอร์\" (Jackknife Gold Ritter) [Buddy Rare]",
+      description: "สุดยอดการ์ดร่างทอง Buddy Rare ฟอยล์ทองปั๊มนูน สภาพใหม่ 100% สำหรับสายดราก้อนเวิลด์",
+      franchise: GameFranchise.BUDDYFIGHT,
+      images: [
+        "https://images.unsplash.com/photo-1614036417651-efe5912149d8?auto=format&fit=crop&w=800&q=80",
+      ],
+      isPreOrder: false,
+      isSingleCard: true,
+      cardNumber: "S-UB03/BR01TH",
+      rarity: "Buddy Rare",
+      cardLanguage: "TH",
+      clanNation: "Dragon World",
+      cardType: "Monster / Size 2",
+      foilType: "Gold Foil Hot Stamp",
+      baseUnitName: "ใบ",
+      packsPerBox: 1,
+      boxesPerCarton: 1,
+      baseStock: 3,
+      variants: {
+        create: [
+          {
+            type: VariantType.SINGLE_CARD,
+            name: "การ์ด Jackknife Gold Ritter [BR] 1 ใบ",
+            sku: "BF-S-UB03-BR01-CARD",
+            price: 1200.0,
+            multiplier: 1,
+          },
+        ],
+      },
+    },
+  });
+
+  // Single 6: The Grand Chariot (XX-Rare) - Battle Spirits JP
+  await prisma.product.create({
+    data: {
+      code: "BS-BS68-XX01",
+      name: "The Grand Chariot (เดอะ แกรนด์ ชาริออต) [XX-Rare]",
+      description: "การ์ดระดับสูงสุด XX-Rare จากชุด BS68 ฟอยล์พรีเมียม สภาพสวยกริบ 100%",
+      franchise: GameFranchise.BATTLE_SPIRITS,
+      images: [
+        "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=800&q=80",
+      ],
+      isPreOrder: false,
+      isSingleCard: true,
+      cardNumber: "BS68-XX01",
+      rarity: "XX-Rare",
+      cardLanguage: "JP",
+      clanNation: "White / Machine",
+      cardType: "Spirit / Cost 8",
+      foilType: "Parallel Holo Textured",
+      baseUnitName: "ใบ",
+      packsPerBox: 1,
+      boxesPerCarton: 1,
+      baseStock: 2,
+      variants: {
+        create: [
+          {
+            type: VariantType.SINGLE_CARD,
+            name: "การ์ด The Grand Chariot [XX-Rare] 1 ใบ",
+            sku: "BS-BS68-XX01-CARD",
+            price: 1850.0,
+            multiplier: 1,
+          },
+        ],
+      },
+    },
+  });
+
+  console.log("🎴 Created 8 Sealed products & 6 Single Cards with rich metadata");
 
   // 4. Create Sample Orders to show tracking and verification capabilities
   const v1 = await prisma.productVariant.findUnique({ where: { sku: "VG-DZ-BT02-BOX" } });
