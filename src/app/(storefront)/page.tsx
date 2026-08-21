@@ -26,6 +26,7 @@ export default async function HomePage() {
   let latestProducts: any[] = [];
   let vanguardProducts: any[] = [];
   let yugiohProducts: any[] = [];
+  let totalActiveProducts = 0;
 
   try {
     const res = await Promise.all([
@@ -51,14 +52,20 @@ export default async function HomePage() {
         include: { variants: true },
         take: 4,
       }),
+      prisma.product.count({
+        where: { isActive: true },
+      }),
     ]);
     preOrderProducts = res[0];
     latestProducts = res[1];
     vanguardProducts = res[2];
     yugiohProducts = res[3];
+    totalActiveProducts = res[4];
   } catch (error) {
     console.error("HomePage data fetch error:", error);
   }
+
+  const remainingProductsCount = Math.max(0, totalActiveProducts - latestProducts.length);
 
   const franchiseCategories = [
     {
@@ -298,7 +305,9 @@ export default async function HomePage() {
             href="/products"
             className="text-xs font-semibold text-gold-400 hover:text-gold-300 flex items-center gap-1 transition-colors"
           >
-            <span>ดูสินค้าทั้งหมด ({latestProducts.length}+)</span>
+            <span>
+              ดูสินค้าทั้งหมด{remainingProductsCount > 0 ? ` (+${remainingProductsCount})` : ""}
+            </span>
             <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
