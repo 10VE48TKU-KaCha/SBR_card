@@ -38,7 +38,7 @@ export default async function HomePage() {
       prisma.product.findMany({
         where: { isActive: true },
         include: { variants: true },
-        take: 8,
+        take: 4,
         orderBy: { createdAt: "desc" },
       }),
       prisma.product.findMany({
